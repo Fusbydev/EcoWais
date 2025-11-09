@@ -45,9 +45,38 @@ Route::get('/barangay-admin/homepage', function () {
     return view('barangay-admin.homepage');
 })->name('barangay.admin.homepage');
 
-Route::get('barangay-waste-collector/homepage', function () { 
-    return view('barangay-waste-collector.homepage');
+use Illuminate\Support\Facades\DB;
+
+Route::get('barangay-waste-collector/homepage', function () {
+
+    // Step 1: Get the user_id from the session
+    $userId = session('user_id');
+
+    // Step 2: Find the driver for this user
+    $driver = DB::table('drivers')->where('user_id', $userId)->first();
+
+    if (!$driver) {
+        return "❌ No driver found for this user.";
+    }
+
+    // Step 3: Join pickups with trucks and locations
+    $scheduledPickups = DB::table('pickups')
+        ->join('trucks', 'pickups.truck_id', '=', 'trucks.id')
+        ->join('locations', 'pickups.location_id', '=', 'locations.id')
+        ->where('trucks.driver_id', $driver->id)
+        ->select(
+            'pickups.*',
+            'locations.location as location_name'
+        )
+        ->get();
+
+    // Step 4: Return data to the view
+    return view('barangay-waste-collector.homepage', [
+        'scheduledPickups' => $scheduledPickups,
+        'driver' => $driver
+    ]);
 })->name('barangay.waste.collector.homepage');
+
 
 //municipality-admin
 Route::get('municipality-admin/admin', function () {

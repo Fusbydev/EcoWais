@@ -11,14 +11,15 @@
     {{-- Leaflet CSS --}}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
+    {{-- ✅ Mapillary v4 CSS (UPDATED) --}}
+    <link rel="stylesheet" href="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css" />
+
     {{-- MarkerCluster CSS --}}
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
     <!-- Bootstrap CSS -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-<!-- Bootstrap JS (for modal functionality) -->
-
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
     @stack('styles')
 </head>
@@ -35,15 +36,27 @@
     <main>
         @yield('content')
     </main>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-    {{-- ✅ Load scripts in correct order --}}
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<!-- ✅ Load Leaflet FIRST -->
+<!-- ✅ Load Leaflet FIRST -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    {{-- Your external JS --}}
-    <script src="{{ asset('js/index.js') }}"></script>
+<!-- ✅ Then MarkerCluster -->
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
+<!-- ✅ osmtogeojson from jsdelivr -->
+<script src="https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0-beta.5/osmtogeojson.js"></script>
+
+<!-- ✅ TEST: Verify it loaded -->
+<script>
+    console.log('osmtogeojson loaded?', typeof osmtogeojson !== 'undefined');
+</script>
+
+<!-- ✅ Mapillary v4 -->
+<script src="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js"></script>
+
+<!-- ✅ Your app script LAST -->
+<script src="{{ asset('js/index.js') }}"></script>
     @stack('scripts')
 </body>
 </html>

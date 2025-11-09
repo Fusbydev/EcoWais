@@ -10,6 +10,8 @@
                 <div id="driver-status" class="alert alert-success">
                     Status: On Route | Truck #5 | Next Stop: Barangay San Antonio
                 </div>
+                <p><strong>Logged in Driver ID:</strong> {{ session('user_id') }}</p>
+
                 <table class="table">
                     <thead>
                         <tr>
@@ -21,8 +23,28 @@
                         </tr>
                     </thead>
                     <tbody id="driver-routes">
+                        @forelse($scheduledPickups as $pickup)
+                            <tr>
+                                <td>{{ $pickup->pickup_time ?? 'N/A' }}</td>
+                                <td>{{ $pickup->location_name ?? 'N/A' }}</td>
+                                <td>{{ $pickup->waste_type ?? 'N/A' }}</td>
+                                <td>
+                                    <span class="badge bg-{{ $pickup->status === 'completed' ? 'success' : ($pickup->status === 'in-progress' ? 'warning' : 'secondary') }}">
+                                        {{ ucfirst($pickup->status ?? 'pending') }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary">View</button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="text-center">No scheduled pickups found.</td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
+
             </div>
 
             <div class="card">

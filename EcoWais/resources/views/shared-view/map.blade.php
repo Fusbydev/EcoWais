@@ -55,7 +55,7 @@
                 <!-- Map Container with Enhanced Features -->
                 <div class="map-container">
                     <div id="tracking-map"></div>
-                    
+                    <div id="street-view" style="width: 100%; height: 500px; display: none;"></div>
                     <!-- Map Legend -->
                     <div class="map-legend">
                         <h4>🗺️ Legend</h4>
