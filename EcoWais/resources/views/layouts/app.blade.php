@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EcoWais</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     {{-- App CSS --}}
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
@@ -36,6 +37,8 @@
     <main>
         @yield('content')
     </main>
+<!-- ✅ Bootstrap JS Bundle (includes Popper) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- ✅ Load Leaflet FIRST -->
 <!-- ✅ Load Leaflet FIRST -->
@@ -57,6 +60,7 @@
 
 <!-- ✅ Your app script LAST -->
 <script src="{{ asset('js/index.js') }}"></script>
+<script src="{{ asset('js/assignRoutes.js') }}"></script>
     @stack('scripts')
 </body>
 </html>

@@ -17,8 +17,20 @@ class Truck extends Model
         'status',
     ];
 
+     protected $casts = [
+        'pickups' => 'array', // ✅ Automatically handle JSON encoding/decoding
+    ];
+
     public function driver()
     {
         return $this->belongsTo(Driver::class);
     }
+
+    // In app/Models/Truck.php
+
+public function location()
+{
+    return $this->belongsTo(Location::class, 'initial_location', 'location');
+    // This joins: trucks.initial_location = locations.location
+}
 }

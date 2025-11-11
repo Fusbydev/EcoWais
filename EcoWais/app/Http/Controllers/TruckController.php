@@ -51,6 +51,56 @@ class TruckController extends Controller
         return redirect()->back()->with('truckSuccess', "Truck '{$validated['truck_id']}' added successfully!");
     }
 
+    public function updatePickups(Request $request)
+    {
+        $request->validate([
+            'truck_id' => 'required|exists:trucks,id',
+            'pickups' => 'required|array',
+        ]);
+
+        $truck = Truck::find($request->truck_id);
+        $truck->pickups = $request->pickups;
+        $truck->save();
+
+        return response()->json(['success' => true]);
+    }
+
+public function getTruckPickups()
+{
+    try {
+        $trucks = Truck::with('driver')->get();
+
+        $data = $trucks->map(function($truck) {
+            $pickups = $truck->pickups;
+
+            // If it's a string, decode it; if it's already an array, leave it
+            if (is_string($pickups)) {
+                $pickups = json_decode($pickups, true);
+            } elseif (!is_array($pickups)) {
+                $pickups = [];
+            }
+
+            return [
+                'id'            => $truck->id,  // ✅ Add this line
+                'truck_id'      => $truck->truck_id,
+                'driver_name'   => $truck->driver->name ?? null,
+                'initial_coords'=> $truck->initial_coords ?? null,
+                'pickups'       => $pickups
+            ];
+        });
+
+        return response()->json($data);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+
+
     /**
      * Display the specified resource.
      */

@@ -1424,3 +1424,18 @@ body {
     text-align: center;
     line-height: 30px;
 }
+.custom-pickup-icon {
+    font-size: 32px; /* ⬆️ Increase this number to make the emoji bigger */
+    line-height: 1;
+    transform: translate(-50%, -100%); /* centers the tip better */
+}
+
+.pickup-marker1 {
+  font-size: 32px;        /* size of the emoji */
+  line-height: 1;
+  transform: translate(-50%, -100%); /* keeps tip aligned */
+  position: relative;
+  top: 0;
+  left: 0;
+}
+

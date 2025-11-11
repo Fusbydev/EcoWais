@@ -134,18 +134,51 @@
                     <div class="route-planning-panel">
                         <div class="form-group">
                             <label>Select Truck for Route Planning:</label>
-                            <select id="route-truck-select">
-                                <option value="">Choose a truck...</option>
-                            </select>
+                           <select class="form-control" id="truck" name="truck" required>
+                            <option value="">Select Truck</option>
+                            @foreach($trucks as $truck)
+                                <option value="{{ $truck->id }}">{{ $truck->truck_id }}</option>
+                            @endforeach
+                        </select>
                         </div>
                         <div class="route-actions">
                             <button class="btn btn-success" onclick="optimizeRoute()">🔄 Optimize Route</button>
                             <button class="btn btn-info" onclick="showRouteDetails()">📋 Route Details</button>
-                            <button class="btn btn-warning" onclick="assignNewRoute()">📍 Assign New Route</button>
+                             <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#assignRouteModal">
+                                📍 Assign New Route
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        @endsection 
+         <!-- Assign New Route Modal -->
+<div class="modal fade" id="assignRouteModal" tabindex="-1" aria-labelledby="assignRouteLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title" id="assignRouteLabel">📍 Assign New Route to Truck #SAD</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="text-muted">
+          Select new pickup locations from a map.
+        </p>
+
+        <!-- Map container -->
+        <div id="pickupMap" style="height: 500px; border-radius: 8px;"></div>
+      </div>
+
+      <div class="modal-footer">
+    <button type="button" class="btn btn-primary" onclick="savePickupPoints()">💾 Save Pickups</button>
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
+
+    </div>
+  </div>
+</div>
+
+
+@endsection 

@@ -99,13 +99,17 @@ Route::get('/municipality-admin/scheduling', [PickupController::class, 'index'])
 Route::delete('/pickup/{id}', [PickupController::class, 'destroy'])->name('pickup.destroy');
 Route::get('/pickup-locations', [PickupController::class, 'getPickupLocations'])->name('pickup.locations');
 
+Route::post('/update-truck-pickups', [TruckController::class, 'updatePickups']);
+Route::get('/truck-pickups', [TruckController::class, 'getTruckPickups']);
+Route::post('/api/get-route', [TruckController::class, 'getRoute']);
 Route::get('municipality-admin/dashboard', function () {  
     return view('municipality-admin.dashboard');
 })->name('municipality.dashboard');
 
 
 Route::get('/shared-view/map', function () {
-    return view('shared-view.map');
+    $trucks = Truck::all();
+    return view('shared-view.map', compact('trucks'));
 })->name('map.view');
 
 Route::post('/logout', function () {
