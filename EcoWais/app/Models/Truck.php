@@ -12,25 +12,24 @@ class Truck extends Model
     protected $fillable = [
         'truck_id',
         'driver_id',
+        'location_id',   // <-- make sure this exists in your DB
         'initial_location',
         'initial_fuel',
         'status',
     ];
 
-     protected $casts = [
-        'pickups' => 'array', // ✅ Automatically handle JSON encoding/decoding
+    protected $casts = [
+        'pickups' => 'array',
     ];
 
     public function driver()
     {
-        return $this->belongsTo(Driver::class);
+        return $this->belongsTo(Driver::class, 'driver_id');
     }
 
-    // In app/Models/Truck.php
-
-public function location()
+    public function location()
 {
     return $this->belongsTo(Location::class, 'initial_location', 'location');
-    // This joins: trucks.initial_location = locations.location
 }
+
 }

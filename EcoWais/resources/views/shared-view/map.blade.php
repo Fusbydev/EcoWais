@@ -121,10 +121,64 @@
                                     <th>🎛️ Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="truck-status-table"></tbody>
+                            <tbody id="truck-status-table">
+                                @foreach ($trucks as $truck)
+                                    <tr>
+                                        <td>{{ $truck->truck_id }}</td>
+                                        <td>{{ $truck->driver_name ?? '' }}</td>
+                                        <td class="current-location" data-lat="{{ $truck->current_latitude }}" data-lng="{{ $truck->current_longitude }}">
+    {{ $truck->current_latitude ?? '' }}, {{ $truck->current_longitude ?? '' }}
+</td>
+
+
+                                        <td>
+                                            @if ($truck->pickups)
+                                                @php
+                                                    $pickups = is_array($truck->pickups) ? $truck->pickups : json_decode($truck->pickups, true);
+                                                @endphp
+
+                                                <button class="btn btn-sm btn-info show-address-btn" 
+                                                        data-pickups='@json($pickups)'>
+                                                    Show Addresses
+                                                </button>
+                                            @endif
+                                        </td>
+
+
+                                        <td>{{ $truck->progress ?? '0/0' }}</td>
+
+                                        <td></td> <!-- ETA empty -->
+                                        <td>{{ $truck->initial_fuel ?? '' }}</td>
+                                        <td>{{ $truck->status ?? '' }}</td> <!-- Status empty -->
+                                        <td>
+                                            <button class="btn btn-sm btn-primary">Edit</button>
+                                            <button class="btn btn-sm btn-danger">Delete</button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
                         </table>
                     </div>
                 </div>
+
+                <!-- Pickup Address Modal -->
+<div class="modal fade" id="pickupAddressModal" tabindex="-1" aria-labelledby="pickupAddressModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="pickupAddressModalLabel">Pickup Addresses</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="pickup-address-modal-body">
+        Loading addresses...
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
                 <!-- Route Planning Panel -->
                 <div class="card">
@@ -179,6 +233,74 @@
     </div>
   </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const buttons = document.querySelectorAll('.show-address-btn');
+    const modalBody = document.getElementById('pickup-address-modal-body');
+    const pickupModalEl = document.getElementById('pickupAddressModal');
+    const pickupModal = new bootstrap.Modal(pickupModalEl);
+
+    buttons.forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const pickups = JSON.parse(btn.dataset.pickups);
+
+            // Show modal immediately with loading spinner
+            modalBody.innerHTML = `
+                <div class="text-center my-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading addresses...</p>
+                </div>
+            `;
+            pickupModal.show();
+
+            let addressesHtml = '<ul>';
+
+            for (const pickup of pickups) {
+                const lat = pickup.lat;
+                const lng = pickup.lng;
+
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+                    const data = await res.json();
+                    const address = data.display_name || `${lat}, ${lng}`;
+                    addressesHtml += `<li>${address}</li>`;
+                } catch (err) {
+                    addressesHtml += `<li>${lat}, ${lng} (Unknown location)</li>`;
+                }
+            }
+
+            addressesHtml += '</ul>';
+            modalBody.innerHTML = addressesHtml;
+        });
+    });
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const locationCells = document.querySelectorAll('.current-location');
+
+    locationCells.forEach(async cell => {
+        const lat = cell.dataset.lat;
+        const lng = cell.dataset.lng;
+
+        if (lat && lng) {
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+                const data = await response.json();
+                const address = data.display_name || `${lat}, ${lng}`;
+                cell.innerText = address;
+            } catch (err) {
+                cell.innerText = `${lat}, ${lng} (Unknown location)`;
+            }
+        } else {
+            cell.innerText = 'No location';
+        }
+    });
+});
+
+</script>
+
 
 
 @endsection 

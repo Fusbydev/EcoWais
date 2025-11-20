@@ -346,3 +346,230 @@ function closeStreetView() {
         mapillaryViewer = null;
     }
 }
+
+document.getElementById('driver-status-select').addEventListener('change', async function() {
+    const selected = this.value;
+    const pickupDropdown = document.getElementById('pickup-location-select');
+
+    if (selected === 'at-pickup') {
+        pickupDropdown.style.display = 'block';
+        pickupDropdown.innerHTML = '<option disabled selected>Loading pickup locations...</option>';
+
+        try {
+            const response = await fetch('/driver/pickup-locations');
+            const data = await response.json();
+
+            console.log("✅ Loaded pickup locations: ", data);
+            pickupDropdown.innerHTML = ''; // clear old options
+
+            if (data.length > 0) {
+                for (const loc of data) {
+                    const { latitude, longitude, timeWindow } = loc;
+
+                    // Reverse geocode each point
+                    const geoResponse = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+                    );
+                    const geoData = await geoResponse.json();
+                    const readableAddress = geoData.display_name || `${latitude}, ${longitude}`;
+
+                    const opt = document.createElement('option');
+                    opt.value = `${latitude},${longitude}`;
+                    opt.textContent = readableAddress + (timeWindow ? ` (${timeWindow.start} - ${timeWindow.end})` : '');
+                    pickupDropdown.appendChild(opt);
+                }
+            } else {
+                pickupDropdown.innerHTML = '<option>No pickup points found</option>';
+            }
+        } catch (err) {
+            console.error('Error loading pickup locations:', err);
+            pickupDropdown.innerHTML = '<option>Error loading data</option>';
+        }
+    } else {
+        pickupDropdown.style.display = 'none';
+    }
+});
+
+async function updateDriverStatus() {
+    const status = document.getElementById('driver-status-select').value;
+    const pickupSelect = document.getElementById('pickup-location-select');
+    const selectedPickup = pickupSelect.value; // "lat,lng"
+    const [latitude, longitude] = selectedPickup ? selectedPickup.split(',') : [null, null];
+    console.log('DEBUG:', { latitude, longitude }); // ✅ check values before sending
+    try {
+        const response = await fetch('/update-driver-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+                status,
+                latitude,
+                longitude
+            })
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            console.log(result);
+            alert('Status updated successfully!');
+        } else {
+            alert(result.message || 'Error updating status');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Failed to update status');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const tbody = document.getElementById('driver-routes');
+    tbody.innerHTML = ''; // Clear placeholder rows
+
+    const pickups = window.scheduledPickups;
+
+    pickups.forEach(pickup => {
+        if (pickup.points && pickup.points.length > 0) {
+
+            // Parse completed_routes safely
+            let completedRoutes = [];
+            if (pickup.completed_routes) {
+                try {
+                    completedRoutes = Array.isArray(pickup.completed_routes) 
+                        ? pickup.completed_routes 
+                        : JSON.parse(pickup.completed_routes);
+                } catch (err) {
+                    completedRoutes = [];
+                }
+            }
+
+            pickup.points.forEach((point, index) => {
+                const rowId = `${pickup.id}-${index}`;
+
+                // Create the row
+                const tr = document.createElement('tr');
+                tr.dataset.pickupId = pickup.id;
+                tr.dataset.lat = point.lat;
+                tr.dataset.lng = point.lng;
+
+                // Time window
+                const tdTime = document.createElement('td');
+                tdTime.classList.add('text-center');
+                tdTime.textContent = point.timeWindow
+                    ? `${point.timeWindow.start || 'N/A'} - ${point.timeWindow.end || 'N/A'}`
+                    : 'N/A';
+                tr.appendChild(tdTime);
+
+
+                // Address placeholder
+                const tdAddress = document.createElement('td');
+                tdAddress.classList.add('text-start');
+                tdAddress.innerHTML = `<span id="short-address-${rowId}">Loading address...</span>
+                                       <span id="full-address-${rowId}" class="d-none"></span>`;
+                tr.appendChild(tdAddress);
+
+                // Status
+                const tdStatus = document.createElement('td');
+                tdStatus.classList.add('text-center');
+
+                const isCompleted = completedRoutes.some(route => {
+                    const tolerance = 0.00001;
+                    return Math.abs(route.lat - point.lat) < tolerance && Math.abs(route.lng - point.lng) < tolerance;
+                });
+
+                const statusText = isCompleted ? 'Completed' : 'Pending';
+                const statusClass = isCompleted ? 'success' : 'secondary';
+                tdStatus.innerHTML = `<span class="badge bg-${statusClass}">${statusText}</span>`;
+                tr.appendChild(tdStatus);
+
+                // Action button
+                const tdAction = document.createElement('td');
+                tdAction.classList.add('text-center');
+                const btn = document.createElement('button');
+                btn.classList.add('btn', 'btn-sm', 'btn-primary', 'mark-done-btn');
+                btn.textContent = 'Mark As Done';
+                if (isCompleted) btn.disabled = true; // disable if already completed
+                tdAction.appendChild(btn);
+                tr.appendChild(tdAction);
+
+                tbody.appendChild(tr);
+
+                // Fetch readable address
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${point.lat}&lon=${point.lng}&zoom=18`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const fullAddress = data.display_name || `${point.lat}, ${point.lng}`;
+                        const shortAddress = fullAddress.length > 40 ? fullAddress.slice(0, 40) : fullAddress;
+                        const isTruncated = fullAddress.length > 40;
+
+                        const shortSpan = document.getElementById(`short-address-${rowId}`);
+                        const fullSpan = document.getElementById(`full-address-${rowId}`);
+
+                        shortSpan.innerHTML = shortAddress + (isTruncated ? ` <span class="text-primary fw-bold" style="cursor:pointer;" onclick="toggleFullAddress('${rowId}')">...</span>` : '');
+                        fullSpan.innerHTML = fullAddress + (isTruncated ? ` <span class="text-danger fw-bold" style="cursor:pointer;" onclick="toggleFullAddress('${rowId}', true)">⤴️</span>` : '');
+                    })
+                    .catch(() => {
+                        const shortSpan = document.getElementById(`short-address-${rowId}`);
+                        shortSpan.textContent = `${point.lat}, ${point.lng} (Unknown location)`;
+                    });
+
+                // Mark As Done click
+                btn.addEventListener('click', async () => {
+                    try {
+                        const res = await fetch(`/pickup/${pickup.id}/complete-point`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ lat: point.lat, lng: point.lng })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            // Update status immediately
+                            tdStatus.querySelector('span.badge').textContent = 'Completed';
+                            tdStatus.querySelector('span.badge').classList.remove('bg-secondary');
+                            tdStatus.querySelector('span.badge').classList.add('bg-success');
+                            btn.disabled = true;
+
+                            // Also update pickup.completed_routes locally to persist until refresh
+                            if (!pickup.completed_routes) pickup.completed_routes = [];
+                            pickup.completed_routes.push({ lat: point.lat, lng: point.lng });
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                });
+
+            });
+        } else {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="5" class="text-center">No pickup locations found for this truck.</td>`;
+            tbody.appendChild(tr);
+        }
+    });
+});
+
+
+
+
+
+// Toggle function (same as your Blade one)
+function toggleFullAddress(rowId, hide = false) {
+    const shortSpan = document.getElementById(`short-address-${rowId}`);
+    const fullSpan = document.getElementById(`full-address-${rowId}`);
+    if (hide) {
+        shortSpan.classList.remove('d-none');
+        fullSpan.classList.add('d-none');
+    } else {
+        shortSpan.classList.add('d-none');
+        fullSpan.classList.remove('d-none');
+    }
+}
+
+
+
+
+
+

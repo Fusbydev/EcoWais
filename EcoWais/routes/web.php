@@ -10,7 +10,10 @@ use App\Models\Driver;
 use App\Models\Pickup;
 use App\Models\Truck;
 use App\Models\User;
+use App\Models\Attendance;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\DriverReportController;
+use App\Http\Controllers\AttendanceController;
 
 Route::get('/dashboard', [PageController::class, 'dashboard'])->name('dashboard');
 Route::get('/tracking', [PageController::class, 'tracking'])->name('tracking');
@@ -40,42 +43,143 @@ Route::get('/', function() {
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
 
+
 Route::get('/barangay-admin/homepage', function () {
-    // You can return a view for the dashboard
-    return view('barangay-admin.homepage');
+
+    $locations = Location::all();
+    $barangayId = request('barangay');
+    $attendance = Attendance::all();
+
+    //get the attendances status total number, absent, present, late
+    $total = $attendance->count();
+    $absent = $attendance->where('status', 'Absent')->count();
+    $present = $attendance->where('status', 'Present')->count();
+    $late = $attendance->where('status', 'Late')->count();
+
+    $selectedLocation = null;
+    $trucks = collect(); // empty by default
+    $collectors = collect();
+
+    if ($barangayId) {
+        $selectedLocation = Location::find($barangayId);
+
+        // trucks assigned to this barangay
+        $trucks = Truck::with(['driver.user'])
+            ->where('initial_location', $selectedLocation->location)
+            ->get();
+
+        // collectors assigned to this barangay
+        $collectors = $selectedLocation->collectors ?? collect();
+    }
+
+    return view('barangay-admin.homepage', compact(
+        'locations',
+        'selectedLocation',
+        'trucks',
+        'collectors',
+        "absent",
+        "present",
+        "late"
+    ));
 })->name('barangay.admin.homepage');
+
+// routes/web.php
+Route::get('/barangay/{id}/trucks', [DriverController::class, 'getTrucks'])->name('barangay.trucks');
+
+
+Route::post('/attendance/time-in', [AttendanceController::class, 'timeIn'])->name('attendance.timein');
+Route::post('/attendance/time-out', [AttendanceController::class, 'timeOut'])->name('attendance.timeout');
 
 use Illuminate\Support\Facades\DB;
 
 Route::get('barangay-waste-collector/homepage', function () {
 
-    // Step 1: Get the user_id from the session
     $userId = session('user_id');
-
-    // Step 2: Find the driver for this user
     $driver = DB::table('drivers')->where('user_id', $userId)->first();
 
     if (!$driver) {
         return "❌ No driver found for this user.";
     }
 
-    // Step 3: Join pickups with trucks and locations
     $scheduledPickups = DB::table('pickups')
         ->join('trucks', 'pickups.truck_id', '=', 'trucks.id')
         ->join('locations', 'pickups.location_id', '=', 'locations.id')
         ->where('trucks.driver_id', $driver->id)
         ->select(
             'pickups.*',
-            'locations.location as location_name'
+            'locations.location as location_name',
+            'trucks.pickups as truck_pickups'
         )
         ->get();
 
-    // Step 4: Return data to the view
+    foreach ($scheduledPickups as $pickup) {
+    $decoded = json_decode($pickup->truck_pickups, true);
+    $pickupPoints = [];
+
+    if (is_array($decoded)) {
+        foreach ($decoded as $point) {
+            if (isset($point['lat'], $point['lng'])) {
+                $pickupPoints[] = [
+                    'lat' => $point['lat'],
+                    'lng' => $point['lng'],
+                    'timeWindow' => $point['timeWindow'] ?? null
+                ];
+            }
+        }
+    }
+
+    $pickup->points = $pickupPoints;
+}
+
+
     return view('barangay-waste-collector.homepage', [
         'scheduledPickups' => $scheduledPickups,
         'driver' => $driver
     ]);
 })->name('barangay.waste.collector.homepage');
+
+Route::post('pickup/{pickup}/complete-point', function (Request $request, $pickup) {
+    $request->validate([
+        'lat' => 'required|numeric',
+        'lng' => 'required|numeric',
+    ]);
+
+    $pickupRecord = DB::table('pickups')->where('id', $pickup)->first();
+    if (!$pickupRecord) {
+        return response()->json(['success' => false, 'message' => 'Pickup not found'], 404);
+    }
+
+    // Decode existing completed_routes JSON
+    $completedRoutes = json_decode($pickupRecord->completed_routes ?? '[]', true);
+
+    // Add the new point if it doesn't exist
+    $exists = collect($completedRoutes)->contains(function($route) use ($request) {
+        $tolerance = 0.00001;
+        return abs($route['lat'] - $request->lat) < $tolerance && abs($route['lng'] - $request->lng) < $tolerance;
+    });
+
+    if (!$exists) {
+        $completedRoutes[] = [
+            'lat' => $request->lat,
+            'lng' => $request->lng,
+        ];
+
+        DB::table('pickups')->where('id', $pickup)->update([
+            'completed_routes' => json_encode($completedRoutes),
+            'current_latitude' => $request->lat,
+            'current_longitude' => $request->lng,
+            'updated_at' => now(),
+        ]);
+    }
+
+    return response()->json(['success' => true, 'completed_routes' => $completedRoutes]);
+});
+
+Route::get('/barangay/{id}/collectors', [DriverController::class, 'getCollectors']);
+Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+
+
+
 
 
 //municipality-admin
@@ -106,11 +210,66 @@ Route::get('municipality-admin/dashboard', function () {
     return view('municipality-admin.dashboard');
 })->name('municipality.dashboard');
 
+Route::get('/driver/pickup-locations', [TruckController::class, 'getDriverPickupAddressesByUser']);
+
+Route::post('/update-driver-status', [TruckController::class, 'updateDriverStatus']);
+
+// routes/web.php
+Route::post('/pickup/{pickup}/complete-point', [PickupController::class, 'completePoint'])
+    ->name('pickup.complete-point');
+
+
 
 Route::get('/shared-view/map', function () {
-    $trucks = Truck::all();
+    $trucks = DB::table('trucks')
+        ->leftJoin('drivers', 'trucks.driver_id', '=', 'drivers.id')
+        ->leftJoin('users', 'drivers.user_id', '=', 'users.id')
+        ->select(
+            'trucks.*',
+            'users.name as driver_name'
+        )
+        ->get();
+
+    // Fetch all pickups
+    $allPickups = DB::table('pickups')->get();
+
+    foreach ($trucks as $truck) {
+        // Total pickups in truck JSON
+        $totalNodes = 0;
+        $truckPickups = [];
+        if ($truck->pickups) {
+            $truckPickups = is_array($truck->pickups) ? $truck->pickups : json_decode($truck->pickups, true);
+            $totalNodes = count($truckPickups);
+        }
+
+        // Completed pickups for this truck
+        $completedNodes = 0;
+        $currentLat = null;
+        $currentLng = null;
+
+        foreach ($allPickups as $pickup) {
+            if ($pickup->truck_id == $truck->id) {
+                // Get current latitude/longitude (latest pickup)
+                $currentLat = $pickup->current_latitude ?? $currentLat;
+                $currentLng = $pickup->current_longitude ?? $currentLng;
+
+                // Count completed routes
+                if ($pickup->completed_routes) {
+                    $completedRoutes = is_array($pickup->completed_routes) ? $pickup->completed_routes : json_decode($pickup->completed_routes, true);
+                    $completedNodes += count($completedRoutes);
+                }
+            }
+        }
+
+        $truck->progress = $completedNodes . '/' . $totalNodes; // e.g., 2/5
+        $truck->current_latitude = $currentLat;
+        $truck->current_longitude = $currentLng;
+    }
+
     return view('shared-view.map', compact('trucks'));
 })->name('map.view');
+
+Route::post('/driver/reports', [DriverReportController::class, 'store'])->name('driver.reports.store');
 
 Route::post('/logout', function () {
     session()->flush();

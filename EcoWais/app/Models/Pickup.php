@@ -9,12 +9,16 @@ class Pickup extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
+        protected $fillable = [
         'location_id',
         'truck_id',
         'pickup_date',
         'pickup_time',
+        'current_latitude',
+        'current_longitude',
+        'status', // optional if you want to set default status
     ];
+
 
     public function location()
     {

@@ -6,6 +6,11 @@ use App\Models\Truck;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Location;
+use Illuminate\Support\Facades\Http;
+use App\Models\Driver;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+
 
 class TruckController extends Controller
 {
@@ -97,6 +102,98 @@ public function getTruckPickups()
         ], 500);
     }
 }
+
+public function getDriverPickupAddressesByUser(Request $request)
+{
+    // 1️⃣ Get user ID from session or input
+    $userId = session('user_id'); // or from your session
+
+    if (!$userId) {
+        return response()->json(['message' => 'User not logged in'], 401);
+    }
+
+    // 2️⃣ Get driver ID
+    $driver = DB::table('drivers')->where('user_id', $userId)->first();
+    if (!$driver) {
+        return response()->json(['message' => 'No driver found'], 404);
+    }
+
+    $driverId = $driver->id;
+
+    // 3️⃣ Get truck assigned to this driver
+    $truck = Truck::where('driver_id', $driverId)->first();
+    if (!$truck || empty($truck->pickups)) {
+        return response()->json(['message' => 'No pickups found'], 404);
+    }
+
+    // 4️⃣ Prepare pickups with readable addresses
+    $pickups = [];
+    foreach ($truck->pickups as $point) {
+        $lat = $point['lat'];
+        $lng = $point['lng'];
+
+        // Reverse geocode with OpenStreetMap Nominatim
+        $response = Http::get('https://nominatim.openstreetmap.org/reverse', [
+            'format' => 'json',
+            'lat' => $lat,
+            'lon' => $lng,
+            'zoom' => 18,
+            'addressdetails' => 1
+        ]);
+
+        $address = $lat . ', ' . $lng; // fallback if API fails
+        if ($response->ok() && isset($response['display_name'])) {
+            $address = $response['display_name'];
+        }
+
+        $pickups[] = [
+            'latitude' => $lat,
+            'longitude' => $lng,
+            'address' => $address,
+            'timeWindow' => $point['timeWindow'] ?? null
+        ];
+    }
+
+    return response()->json($pickups);
+}
+
+
+public function updateDriverStatus(Request $request)
+{
+    // 1️⃣ Get the user ID from session manually
+    $userId = session('user_id'); // set this when user logs in
+
+    // 2️⃣ Get the driver
+    $driver = DB::table('drivers')->where('user_id', $userId)->first();
+    if (!$driver) {
+        return response()->json(['message' => 'Driver not found'], 404);
+    }
+
+    // 3️⃣ Get the truck assigned to this driver
+    $truck = DB::table('trucks')->where('driver_id', $driver->id)->first();
+    if (!$truck) {
+        return response()->json(['message' => 'Truck not found'], 404);
+    }
+
+    // 4️⃣ Prepare update data
+    $updateData = [
+        'status' => $request->status ?? 'on-route',
+        'updated_at' => now(),
+    ];
+
+    if ($request->latitude && $request->longitude) {
+        $updateData['current_latitude'] = $request->latitude;
+        $updateData['current_longitude'] = $request->longitude;
+    }
+
+    // 5️⃣ Update the pickups table for this truck
+    DB::table('pickups')
+        ->where('truck_id', $truck->id)
+        ->update($updateData);
+
+    return response()->json(['message' => 'Status and location updated successfully']);
+}
+
 
 
 

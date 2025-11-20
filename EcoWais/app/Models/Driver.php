@@ -12,8 +12,9 @@ class Driver extends Model
     protected $fillable = ['user_id', 'phone_number'];
 
     // Relationship to User
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+public function user()
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
+
 }
