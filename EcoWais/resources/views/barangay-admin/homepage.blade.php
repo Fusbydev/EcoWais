@@ -118,47 +118,73 @@
             <!-- Report an Issue -->
             <div class="card">
                 <h3>📢 Report an Issue</h3>
-                <form id="report-form">
-                    <div class="form-group">
-                        <label>Issue Type</label>
-                        <select id="issue-type" required>
-                            <option value="">Select issue type</option>
-                            <option value="missed">Missed Collection</option>
-                            <option value="spillage">Waste Spillage</option>
-                            <option value="illegal">Illegal Dumping</option>
-                            <option value="damaged">Damaged Bin</option>
-                            <option value="driver-absent">Driver/Collector Absent</option>
-                            <option value="vehicle">Vehicle Problem</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Location (Street/Area in Barangay)</label>
-                        <input type="text" id="issue-location" required placeholder="e.g., Purok 1, near Municipal Hall">
-                    </div>
-                    <div class="form-group">
-                        <label>Date & Time of Incident</label>
-                        <input type="datetime-local" id="issue-datetime" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Priority Level</label>
-                        <select id="issue-priority" required>
-                            <option value="low">Low - Can wait a few days</option>
-                            <option value="medium">Medium - Need attention soon</option>
-                            <option value="high">High - Urgent attention needed</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea id="issue-description" required placeholder="Describe the issue in detail"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Attach Photo (Optional)</label>
-                        <input type="file" id="issue-photo" accept="image/*">
-                        <small style="color: #666; display: block; margin-top: 0.5rem;">Supported formats: JPG, PNG (Max 5MB)</small>
-                    </div>
-                    <button type="submit" class="btn btn-warning btn-full">📤 Submit Report</button>
-                </form>
+                @if(session('success'))
+    <div class="alert alert-success">{{ session('success') }}</div>
+@endif
+
+@if(session('error'))
+    <div class="alert alert-danger">{{ session('error') }}</div>
+@endif
+
+@if($errors->any())
+    <div class="alert alert-danger">
+        <ul>
+            @foreach($errors->all() as $err)
+                <li>{{ $err }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
+                <form id="report-form" method="POST" action="{{ route('report.store') }}" enctype="multipart/form-data">
+    @csrf
+
+    <div class="form-group">
+        <label>Issue Type</label>
+        <select id="issue-type" name="issue_type" required>
+            <option value="">Select issue type</option>
+            <option value="missed">Missed Collection</option>
+            <option value="spillage">Waste Spillage</option>
+            <option value="illegal">Illegal Dumping</option>
+            <option value="damaged">Damaged Bin</option>
+            <option value="driver-absent">Driver/Collector Absent</option>
+            <option value="vehicle">Vehicle Problem</option>
+            <option value="other">Other</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Location (Street/Area)</label>
+        <input type="text" id="issue-location" name="location" required>
+    </div>
+
+    <div class="form-group">
+        <label>Date & Time</label>
+        <input type="datetime-local" id="issue-datetime" name="incident_datetime" required>
+    </div>
+
+    <div class="form-group">
+        <label>Priority Level</label>
+        <select id="issue-priority" name="priority" required>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Description</label>
+        <textarea id="issue-description" name="description" required></textarea>
+    </div>
+
+    <div class="form-group">
+        <label>Attach Photo (Optional)</label>
+        <input type="file" id="issue-photo" name="photo" accept="image/*">
+    </div>
+
+    <button type="submit" class="btn btn-warning btn-full">📤 Submit Report</button>
+</form>
+
             </div>
 
             <!-- Submitted Reports History -->
@@ -202,127 +228,121 @@
 
     
 <script>
+// ================================
+// BARANGAY CHANGE HANDLER
+// ================================
 document.getElementById('barangay').addEventListener('change', function () {
     let selectedOption = this.options[this.selectedIndex];
-
-// Get the data-name attribute
     let barangayName = selectedOption.getAttribute('data-name');
-    console.log("Selected barangay:", barangayName);
-    let barangayId = this.value; // ID for table API
+    let barangayId = this.value;
 
     document.getElementById('current-barangay').textContent = barangayName;
 
+    // ===== Fetch collectors =====
     fetch(`/barangay/${encodeURIComponent(barangayName)}/collectors`)
         .then(res => res.json())
         .then(data => {
-            console.log("Full response:", data);
-
-            // count trucks
             document.getElementById('assigned-collectors').textContent = data.length;
-
-            // names
             let names = data.map(c => c.driver_name).join(", ");
             document.getElementById('collector-names').textContent = names || "None";
         })
         .catch(err => console.error("Error fetching collectors:", err));
 
-
-        fetch(`/barangay/${barangayId}/trucks`)
+    // ===== Fetch trucks for this barangay =====
+    fetch(`/barangay/${barangayId}/trucks`)
         .then(res => res.json())
         .then(trucks => {
             const tbody = document.getElementById('trucks-tbody');
             tbody.innerHTML = '';
-            
-            console.log(trucks || "No trucks assigned to this barangay.");
+
+            window.cachedDrivers = trucks; // store for issue report dropdown
+
             if (!trucks.length) {
-                tbody.innerHTML = `<tr>
-                    <td colspan="8" class="text-center">No trucks assigned to this barangay.</td>
-                </tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center">No trucks assigned to this barangay.</td></tr>`;
                 return;
             }
-trucks.forEach(truck => {
-    console.log('Truck data:', truck);
-    
-    // Check if time_in exists
-    let timeInCell = '';
-    if (!truck.time_in || truck.time_in === null) {
-        timeInCell = `
-            <form method="POST" action="/attendance/time-in" onsubmit="return confirm('Record time in for ${truck.driver_name}?');">
-                <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]').content}">
-                <input type="hidden" name="user_id" value="${truck.user_id}">
-                <input type="hidden" name="location_id" value="${barangayId}">
-                <button type="submit" class="btn btn-success btn-sm">✓ Time In</button>
-            </form>
-        `;
-    } else {
-        timeInCell = `<span class="text-success">${new Date(truck.time_in).toLocaleTimeString()}</span>`;
-    }
 
-    // Check if time_out exists
-    let timeOutCell = '';
-    if (!truck.time_out || truck.time_out === null) {
-        if (truck.time_in && truck.time_in !== null) {
-            timeOutCell = `
-                <form method="POST" action="/attendance/time-out" onsubmit="return confirm('Record time out for ${truck.driver_name}?');">
-                    <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]').content}">
-                    <input type="hidden" name="user_id" value="${truck.user_id}">
-                    <input type="hidden" name="location_id" value="${barangayId}">
-                    <button type="submit" class="btn btn-warning btn-sm">⏰ Time Out</button>
-                </form>
-            `;
-        } else {
-            timeOutCell = `<span class="text-muted">—</span>`;
-        }
-    } else {
-        timeOutCell = `<span class="text-warning">${new Date(truck.time_out).toLocaleTimeString()}</span>`;
-    }
+            trucks.forEach(truck => {
 
-    // Calculate hours worked
-    let hoursWorked = '—';
-    if (truck.time_in && truck.time_out) {
-        const timeIn = new Date(truck.time_in);
-        const timeOut = new Date(truck.time_out);
-        const diffMs = timeOut - timeIn; // Difference in milliseconds
-        const diffHours = diffMs / (1000 * 60 * 60); // Convert to hours
-        
-        // Format as hours and minutes
-        const hours = Math.floor(diffHours);
-        const minutes = Math.round((diffHours - hours) * 60);
-        
-        hoursWorked = `${hours}h ${minutes}m`;
-    }
+                // TIME IN
+                let timeInCell = '';
+                if (!truck.time_in) {
+                    timeInCell = `
+                        <form method="POST" action="/attendance/time-in"
+                              class="ajax-attendance-form"
+                              onsubmit="return confirm('Record time in for ${truck.driver_name}?');">
+                            <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]').content}">
+                            <input type="hidden" name="user_id" value="${truck.user_id}">
+                            <input type="hidden" name="location_id" value="${barangayId}">
+                            <button type="submit" class="btn btn-success btn-sm">✓ Time In</button>
+                        </form>
+                    `;
+                } else {
+                    timeInCell = `<span class="text-success">${new Date(truck.time_in).toLocaleTimeString()}</span>`;
+                }
 
-    // Determine status
-    let statusCell = truck.status || 'Absent';
-    let statusClass = truck.status === 'Present' ? 'text-success' : 
-                      truck.status === 'Late' ? 'text-warning' : 'text-danger';
-    
-    tbody.innerHTML += `
-    <tr>
-        <td>${truck.driver_name}</td>
-        <td>${truck.role}</td>
-        <td>${truck.truck_id}</td>
-        <td>${timeInCell}</td>
-        <td>${timeOutCell}</td>
-        <td><strong>${hoursWorked}</strong></td>
-        <td><span class="${statusClass}">${statusCell}</span></td>
-        <td>
-            <a href="#" class="btn btn-primary btn-sm">View</a>
-            <a href="#" class="btn btn-warning btn-sm">Edit</a>
-        </td>
-    </tr>`;
-});
+                // TIME OUT
+                let timeOutCell = '';
+                if (!truck.time_out) {
+                    if (truck.time_in) {
+                        timeOutCell = `
+                            <form method="POST" action="/attendance/time-out"
+                                  class="ajax-attendance-form"
+                                  onsubmit="return confirm('Record time out for ${truck.driver_name}?');">
+                                <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]').content}">
+                                <input type="hidden" name="user_id" value="${truck.user_id}">
+                                <input type="hidden" name="location_id" value="${barangayId}">
+                                <button type="submit" class="btn btn-warning btn-sm">⏰ Time Out</button>
+                            </form>
+                        `;
+                    } else {
+                        timeOutCell = `<span class="text-muted">—</span>`;
+                    }
+                } else {
+                    timeOutCell = `<span class="text-warning">${new Date(truck.time_out).toLocaleTimeString()}</span>`;
+                }
 
+                // HOURS WORKED
+                let hoursWorked = '—';
+                if (truck.time_in && truck.time_out) {
+                    const diff = new Date(truck.time_out) - new Date(truck.time_in);
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+                    hoursWorked = `${hours}h ${minutes}m`;
+                }
 
+                // STATUS
+                let statusCell = truck.status || 'Absent';
+                let statusClass =
+                    truck.status === 'Present' ? 'text-success' :
+                    truck.status === 'Late' ? 'text-warning' : 'text-danger';
 
-
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${truck.driver_name}</td>
+                        <td>${truck.role}</td>
+                        <td>${truck.truck_id}</td>
+                        <td>${timeInCell}</td>
+                        <td>${timeOutCell}</td>
+                        <td><strong>${hoursWorked}</strong></td>
+                        <td><span class="${statusClass}">${statusCell}</span></td>
+                        <td>
+                            <a href="#" class="btn btn-primary btn-sm">View</a>
+                            <a href="#" class="btn btn-warning btn-sm">Edit</a>
+                        </td>
+                    </tr>
+                `;
+            });
         })
         .catch(err => console.error("Error fetching trucks:", err));
 });
 
+// ================================
+// AJAX ATTENDANCE SUBMIT
+// ================================
 document.addEventListener('submit', function(e) {
     if (e.target.classList.contains('ajax-attendance-form')) {
-        e.preventDefault(); // prevent page reload
+        e.preventDefault();
 
         const form = e.target;
         const action = form.action;
@@ -332,9 +352,7 @@ document.addEventListener('submit', function(e) {
             method: 'POST',
             body: formData
         })
-        .then(res => res.text()) // controller returns redirect, ignore
         .then(() => {
-            // Disable the button and mark as done
             const button = form.querySelector('button');
             button.disabled = true;
             button.textContent += ' ✅';
@@ -343,6 +361,61 @@ document.addEventListener('submit', function(e) {
     }
 });
 
+// ================================
+// REPORT ISSUE — DYNAMIC FIELDS
+// ================================
+document.addEventListener("DOMContentLoaded", function () {
+
+    const issueType = document.getElementById("issue-type");
+
+    // Create fields
+    const otherInput = document.createElement("input");
+    otherInput.type = "text";
+    otherInput.id = "other-issue";
+    otherInput.name = "other_issue";
+    otherInput.placeholder = "Specify the issue";
+    otherInput.style.display = "none";
+    otherInput.classList.add("form-control");
+
+    const driverDropdown = document.createElement("select");
+    driverDropdown.id = "driver-id";
+    driverDropdown.name = "driver_id";
+    driverDropdown.style.display = "none";
+    driverDropdown.classList.add("form-control");
+
+    issueType.parentNode.appendChild(otherInput);
+    issueType.parentNode.appendChild(driverDropdown);
+
+    issueType.addEventListener("change", function () {
+        if (this.value === "other") {
+            otherInput.style.display = "block";
+            driverDropdown.style.display = "none";
+        }
+        else if (this.value === "driver-absent") {
+            driverDropdown.innerHTML = ""; // clear dropdown
+
+            if (window.cachedDrivers && window.cachedDrivers.length > 0) {
+                window.cachedDrivers.forEach(t => {
+                    const opt = document.createElement("option");
+                    opt.value = t.user_id;        // ✔ driver ID
+                    opt.textContent = t.driver_name; // ✔ driver name
+                    driverDropdown.appendChild(opt);
+                });
+                driverDropdown.style.display = "block";
+            } else {
+                driverDropdown.style.display = "none";
+            }
+
+            otherInput.style.display = "none";
+        }
+        else {
+            otherInput.style.display = "none";
+            driverDropdown.style.display = "none";
+        }
+    });
+});
 </script>
+
+
 
 @endsection

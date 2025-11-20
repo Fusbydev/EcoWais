@@ -14,7 +14,7 @@ use App\Models\Attendance;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\DriverReportController;
 use App\Http\Controllers\AttendanceController;
-
+use App\Http\Controllers\BarangayReportController;
 Route::get('/dashboard', [PageController::class, 'dashboard'])->name('dashboard');
 Route::get('/tracking', [PageController::class, 'tracking'])->name('tracking');
 
@@ -270,6 +270,9 @@ Route::get('/shared-view/map', function () {
 })->name('map.view');
 
 Route::post('/driver/reports', [DriverReportController::class, 'store'])->name('driver.reports.store');
+
+Route::post('/barangay-admin/report/store', [BarangayReportController::class, 'store'])
+    ->name('report.store');
 
 Route::post('/logout', function () {
     session()->flush();
