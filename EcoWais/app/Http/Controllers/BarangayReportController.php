@@ -4,24 +4,39 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\BarangayReport;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class BarangayReportController extends Controller
 {
     public function store(Request $request)
     {
-        // Wrap everything in a try/catch
+        // Log all incoming request data for debugging
+        Log::info('Incoming report request:', $request->all());
+
         try {
-            // Validate the request
+            // Validate the request first (driver_id is now user_id)
             $validated = $request->validate([
                 'issue_type'        => 'required|string',
                 'other_issue'       => 'nullable|string',
-                'driver_id'         => 'nullable|exists:drivers,id',
+                'driver_id'         => 'nullable|integer', // this is user_id now
                 'location'          => 'required|string|max:255',
                 'incident_datetime' => 'required|date',
                 'priority'          => 'required|in:low,medium,high',
                 'description'       => 'required|string',
                 'photo'             => 'nullable|image|mimes:jpg,png,jpeg|max:5120',
             ]);
+
+            // Lookup the actual driver ID from the drivers table using user_id
+            $driverId = null;
+            if (!empty($validated['driver_id'])) {
+                $driver = DB::table('drivers')->where('user_id', $validated['driver_id'])->first();
+                if ($driver) {
+                    $driverId = $driver->id;
+                } else {
+                    return redirect()->back()->with('error', 'No driver found for user_id: ' . $validated['driver_id'])->withInput();
+                }
+            }
 
             // Handle image upload
             $filePath = null;
@@ -39,7 +54,7 @@ class BarangayReportController extends Controller
             $report = BarangayReport::create([
                 'issue_type'        => $validated['issue_type'],
                 'other_issue'       => $validated['other_issue'] ?? null,
-                'driver_id'         => $validated['driver_id'] ?? null,
+                'driver_id'         => $driverId,
                 'location'          => $validated['location'],
                 'incident_datetime' => $validated['incident_datetime'],
                 'priority'          => $validated['priority'],
@@ -48,14 +63,14 @@ class BarangayReportController extends Controller
             ]);
 
             if (!$report) {
-                // If saving fails
                 return redirect()->back()->with('error', 'Failed to save the report. Please try again.');
             }
 
-            return redirect()->back()->with('success', 'Issue reported successfully!');
+            // Return success with the created report ID
+            return redirect()->back()->with('success', 'Issue reported successfully! Report ID: ' . $report->id);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            // Validation failed
+            // Validation failed: return all errors
             return redirect()->back()
                              ->withErrors($e->errors())
                              ->withInput();
