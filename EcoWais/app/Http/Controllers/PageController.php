@@ -35,4 +35,9 @@ class PageController extends Controller
     {
         return view('pages.barangay-scheduling');
     }
+
+    public function userManagement()
+    {
+        return view('municipality-admin.user-management');
+    }
 }

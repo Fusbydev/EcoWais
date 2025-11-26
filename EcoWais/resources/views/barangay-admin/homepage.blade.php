@@ -201,32 +201,124 @@
                 </div>
                 
                 <div class="table-responsive">
-                    <table class="table" id="trucks-table">
-    <thead>
-        <tr>
-            <th>Driver/Collector Name</th>
-            <th>Role</th>
-            <th>Truck ID</th>
-            <th>Time In</th>
-            <th>Time Out</th>
-            <th>Hours Worked</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody id="trucks-tbody">
-        <tr>
-            <td colspan="8" class="text-center">Select a barangay to load trucks.</td>
-        </tr>
-    </tbody>
-</table>
+                    <table class="table">
+        <thead>
+            <tr>
+                <th>Report ID</th>
+                <th>Date Submitted</th>
+                <th>Issue Type</th>
+                <th>Location</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="reports-history">
+            @foreach($reports as $report)
+                <tr>
+                    <td>{{ $report->id }}</td>
+                    <td>{{ $report->created_at->format('M d, Y h:i A') }}</td>
+                    <td>
+                        @php
+                            if ($report->issue_type === 'other') {
+                                $issueDisplay = $report->other_issue;
+                            } elseif ($report->issue_type === 'driver-absent') {
+                                $driverName = $report->driver && $report->driver->user 
+                                            ? $report->driver->user->name 
+                                            : 'unknown';
+                                $issueDisplay = "absent-" . $driverName;
+                            } else {
+                                $issueDisplay = $report->issue_type;
+                            }
+                        @endphp
+                        {{ $issueDisplay }}
+                    </td>
+                    <td>{{ $report->location }}</td>
+                    <td>{{ ucfirst($report->priority) }}</td>
+                    <td><span class="badge bg-info">Pending</span></td>
+                    
+                    {{-- VIEW BUTTON --}}
+                    <td>
+                        <button type="button" class="btn btn-primary btn-sm" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#viewReportModal{{ $report->id }}">
+                            View
+                        </button>
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+
 
                 </div>
             </div>
         </div>
     </div>
+@foreach($reports as $report)
+<div class="modal fade" id="viewReportModal{{ $report->id }}" tabindex="-1" aria-labelledby="viewReportLabel{{ $report->id }}" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="viewReportLabel{{ $report->id }}">
+                    Report Details - #{{ $report->id }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
 
-    
+            <div class="modal-body">
+                <div class="row g-3">
+                    {{-- Left column: Report Info --}}
+                    <div class="col-md-6">
+                        <div class="card border-primary mb-3 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="card-title">Report Information</h6>
+                                <p><strong>Issue Type:</strong> 
+                                    {{ $report->issue_type === 'other' ? $report->other_issue : ($report->issue_type === 'driver-absent' && $report->driver && $report->driver->user ? "absent-" . $report->driver->user->name : $report->issue_type) }}
+                                </p>
+                                <p><strong>Location:</strong> {{ $report->location }}</p>
+                                <p><strong>Priority:</strong> 
+                                    @if(strtolower($report->priority) === 'high')
+                                        <span class="badge bg-danger">{{ ucfirst($report->priority) }}</span>
+                                    @elseif(strtolower($report->priority) === 'medium')
+                                        <span class="badge bg-warning text-dark">{{ ucfirst($report->priority) }}</span>
+                                    @else
+                                        <span class="badge bg-success">{{ ucfirst($report->priority) }}</span>
+                                    @endif
+                                </p>
+                                <p><strong>Status:</strong> <span class="badge bg-info">Pending</span></p>
+                                <p><strong>Submitted At:</strong> {{ $report->created_at->format('M d, Y h:i A') }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Right column: Description & Photo --}}
+                    <div class="col-md-6">
+                        <div class="card border-secondary mb-3 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="card-title">Details & Image</h6>
+                                <p><strong>Description:</strong> {{ $report->description }}</p>
+                                @if($report->photo_path)
+                                    <div class="text-center">
+                                        <img src="{{ asset($report->photo_path) }}" alt="Report Image" class="img-fluid rounded shadow-sm" style="max-height:300px;">
+                                    </div>
+                                @else
+                                    <p class="text-muted text-center">No photo submitted</p>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endforeach
+
 <script>
 // ================================
 // BARANGAY CHANGE HANDLER

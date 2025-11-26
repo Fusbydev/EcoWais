@@ -17,4 +17,9 @@ class BarangayReport extends Model
         'description',
         'photo_path',
     ];
+
+    public function driver()
+    {
+        return $this->belongsTo(Driver::class, 'driver_id');
+    }
 }

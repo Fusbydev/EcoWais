@@ -79,4 +79,11 @@ class BarangayReportController extends Controller
             return redirect()->back()->with('error', 'Something went wrong: ' . $e->getMessage());
         }
     }
+
+    public function history()
+{
+    $reports = BarangayReport::with('driver')->get();
+    return view('barangay-admin.homepage', compact('reports'));
+}
+
 }

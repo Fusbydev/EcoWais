@@ -11,7 +11,10 @@ use App\Models\Pickup;
 use App\Models\Truck;
 use App\Models\User;
 use App\Models\Attendance;
+use App\Models\BarangayReport;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\DriverReportController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BarangayReportController;
@@ -33,6 +36,20 @@ Route::middleware(['auth', 'role:barangay_admin'])->group(function () {
 Route::middleware(['auth', 'role:driver'])->group(function () {
     Route::get('/driver/dashboard', [PageController::class, 'driver'])->name('driver.dashboard');
 });
+// Show user management page
+Route::get('/user-management', [UserController::class, 'index'])->name('user-management');
+
+// Add new user
+Route::post('/users', [UserController::class, 'store'])->name('users.store');
+
+// Edit/update user
+Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+
+// Activate user
+Route::post('/users/{user}/activate', [UserController::class, 'activate'])->name('users.activate');
+
+// Deactivate user
+Route::post('/users/{user}/deactivate', [UserController::class, 'deactivate'])->name('users.deactivate');
 
 
 Route::get('/', function() {
@@ -50,36 +67,37 @@ Route::get('/barangay-admin/homepage', function () {
     $barangayId = request('barangay');
     $attendance = Attendance::all();
 
-    //get the attendances status total number, absent, present, late
     $total = $attendance->count();
     $absent = $attendance->where('status', 'Absent')->count();
     $present = $attendance->where('status', 'Present')->count();
     $late = $attendance->where('status', 'Late')->count();
 
     $selectedLocation = null;
-    $trucks = collect(); // empty by default
+    $trucks = collect();
     $collectors = collect();
 
     if ($barangayId) {
         $selectedLocation = Location::find($barangayId);
 
-        // trucks assigned to this barangay
         $trucks = Truck::with(['driver.user'])
             ->where('initial_location', $selectedLocation->location)
             ->get();
 
-        // collectors assigned to this barangay
         $collectors = $selectedLocation->collectors ?? collect();
     }
+
+    $reports = BarangayReport::with('driver.user')->get();
+
 
     return view('barangay-admin.homepage', compact(
         'locations',
         'selectedLocation',
         'trucks',
         'collectors',
-        "absent",
-        "present",
-        "late"
+        'absent',
+        'present',
+        'late',
+        'reports' // ← REQUIRED
     ));
 })->name('barangay.admin.homepage');
 
@@ -179,7 +197,8 @@ Route::get('/barangay/{id}/collectors', [DriverController::class, 'getCollectors
 Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
 
 
-
+Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+Route::get('/reports/generate', [ReportController::class, 'generatePdf'])->name('reports.generate.pdf');
 
 
 //municipality-admin

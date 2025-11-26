@@ -92,7 +92,10 @@
                         Add New Driver
                     </button>
                     <button class="btn" onclick="systemMaintenance()">System Maintenance</button>
-                    <button class="btn" onclick="generateReports()">Generate Reports</button>
+
+                    <a href="{{ route('reports.generate.pdf') }}" class="btn btn-primary">
+                        Generate PDF Report
+                    </a>
                     <button class="btn" onclick="backupData()">Backup Data</button>
                     <button class="btn" onclick="userManagement()">User Management</button>
                 </div>
