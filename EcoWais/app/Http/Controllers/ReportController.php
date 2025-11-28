@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use PDF; // barryvdh/laravel-dompdf
 use DB;
+use Carbon\Carbon;
+use App\Models\BarangayReport;
 
 class ReportController extends Controller
 {
@@ -71,5 +73,4 @@ class ReportController extends Controller
     $pdf = PDF::loadView('reports.export', compact('reports'));
     return $pdf->download('Combined-Report.pdf');
 }
-
 }

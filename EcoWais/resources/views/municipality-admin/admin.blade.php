@@ -7,15 +7,15 @@
 
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-number" id="total-trucks">14</div>
+                    <div class="stat-number" id="total-trucks">{{ $trucks->count() }}</div>
                     <div>Total Trucks</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="active-drivers">50</div>
+                    <div class="stat-number" id="active-drivers">{{ $drivers->count() }}</div>
                     <div>Active Collectors</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="registered-residents">62</div>
+                    <div class="stat-number" id="registered-residents">{{ $locations->count() }}</div>
                     <div>Registered Barangays</div>
                 </div>
                 <div class="stat-card">
@@ -73,6 +73,70 @@
                     </tbody>
                 </table>
             </div>
+
+
+            <div class="card">
+                <h3>Pending Reports</h3>
+                <div class="search-filter">
+                    <select id="report-filter">
+                        <option value="">All Reports</option>
+                        <option value="new">New</option>
+                        <option value="in-review">In Review</option>
+                        <option value="resolved">Resolved</option>
+                    </select>
+                    <select id="report-type-filter">
+                        <option value="">All Types</option>
+                        <option value="missed">Missed Collection</option>
+                        <option value="spillage">Spillage</option>
+                        <option value="vehicle">Vehicle Issues</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Reporter</th>
+                            <th>Type</th>
+                            <th>Location</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-reports">
+    @foreach($reports as $report)
+        <tr>
+            <td>{{ $report->created_at ? $report->created_at->format('M d, Y h:i A') : '' }}</td>
+            <td>{{ $report->reporter->name ?? 'N/A' }}</td>
+            <td>
+                @php
+                    if ($report->issue_type === 'other') {
+                        $issueDisplay = $report->other_issue ?? '';
+                    } elseif ($report->issue_type === 'driver-absent') {
+                        $driverName = $report->driver->user->name ?? 'Unknown';
+                        $issueDisplay = "Absent - " . $driverName;
+                    } else {
+                        $issueDisplay = $report->issue_type ?? '';
+                    }
+                @endphp
+                {{ $issueDisplay }}
+            </td>
+            <td>{{ $report->location ?? '' }}</td>
+            <td>{{ ucfirst($report->priority ?? '') }}</td>
+            <td><span class="badge bg-info">{{ $report->status ?? 'Pending' }}</span></td>
+            <td>
+                <!-- reesolved and view button -->
+                <button class="btn btn-sm btn-primary">Resolve</button>
+                <button class="btn btn-sm btn-warning">View</button>
+            </td>
+        </tr>
+    @endforeach
+</tbody>
+
+
+                </table>
+            </div>
             <!-- Success alert -->
     @if(session('success'))
         <div class="alert alert-success">
@@ -97,7 +161,7 @@
                         Generate PDF Report
                     </a>
                     <button class="btn" onclick="backupData()">Backup Data</button>
-                    <button class="btn" onclick="userManagement()">User Management</button>
+                    <a href="{{ route('user-management') }}" class="btn btn-primary">User Management</a></a>
                 </div>
             </div>
 
@@ -155,15 +219,23 @@
                             <input type="text" class="form-control" id="truck_id" name="truck_id" required>
                         </div>
                         <div class="mb-3">
+                            <p class="text-muted">Note: If the driver is already assigned to a truck, they will be disabled.</p>
                             <label for="driver_id" class="form-label">Driver Name</label>
-                            <select class="form-control" id="driver_id" name="driver_id" required>
-                                <option value="">-- Select Driver --</option>
+                            <select name="driver_id" class="form-select">
+                                <option value="">Select Driver</option>
                                 @foreach($drivers as $driver)
-                                    <option value="{{ $driver->id }}">{{ $driver->user->name }}</option>
+                                    @php
+                                        $assignedTruck = $driver->truck; // returns the Truck model if assigned
+                                    @endphp
+                                    <option value="{{ $driver->id }}" {{ $assignedTruck ? 'disabled' : '' }}>
+                                        {{ $driver->user->name ?? 'Unknown' }}
+                                        @if($assignedTruck)
+                                            (Truck ID: {{ $assignedTruck->truck_id }})
+                                        @endif
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
-
                         <div class="mb-3">
                             <label for="initial_location" class="form-label">Initial Location</label>
                             <select class="form-control" id="initial_location" name="initial_location" required>
@@ -190,4 +262,36 @@
         </div>
 
     </div>
+    <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const searchInput = document.getElementById('fleet-search');
+    const statusFilter = document.getElementById('fleet-status-filter');
+    const table = document.getElementById('fleet-table');
+    const rows = Array.from(table.getElementsByTagName('tr'));
+
+    function filterFleet() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const statusTerm = statusFilter.value.toLowerCase();
+
+        rows.forEach(row => {
+            const truckId = row.cells[0].innerText.toLowerCase();
+            const driverName = row.cells[1].innerText.toLowerCase();
+            const status = row.cells[3].innerText.toLowerCase();
+
+            const matchesSearch = truckId.includes(searchTerm) || driverName.includes(searchTerm);
+            const matchesStatus = !statusTerm || status === statusTerm;
+
+            if (matchesSearch && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    searchInput.addEventListener('input', filterFleet);
+    statusFilter.addEventListener('change', filterFleet);
+});
+</script>
+
 @endsection     

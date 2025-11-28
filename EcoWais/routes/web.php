@@ -60,7 +60,6 @@ Route::get('/', function() {
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
 
-
 Route::get('/barangay-admin/homepage', function () {
 
     $locations = Location::all();
@@ -203,10 +202,11 @@ Route::get('/reports/generate', [ReportController::class, 'generatePdf'])->name(
 
 //municipality-admin
 Route::get('municipality-admin/admin', function () {
-    $drivers = Driver::all();
+    $drivers = Driver::with('user', 'truck')->get();
     $locations = Location::all();
     $trucks = Truck::all();
-    return view('municipality-admin.admin', compact('locations', 'drivers', 'trucks'));
+    $reports = BarangayReport::all();
+    return view('municipality-admin.admin', compact('locations', 'drivers', 'trucks', 'reports'));
 })->name('municipality.admin');
 
 Route::get('municipality-admin/scheduling', function () {

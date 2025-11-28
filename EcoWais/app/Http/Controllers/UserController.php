@@ -16,8 +16,9 @@ class UserController extends Controller
     }
 
     // Store a new user
-    public function store(Request $request)
-    {
+ public function store(Request $request)
+{
+    try {
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
@@ -34,8 +35,27 @@ class UserController extends Controller
             'status'   => $request->status,
         ]);
 
-        return redirect()->route('user-management')->with('success', 'User added successfully.');
+        return redirect()->route('user-management')
+            ->with('success', 'User has been successfully created.');
+
+    } catch (\Illuminate\Database\QueryException $e) {
+
+        // Duplicate email error
+        if ($e->getCode() == 23000) {
+            return redirect()->route('user-management')
+                ->with('error', 'A user with this email already exists.');
+        }
+
+        // Other database errors
+        dd($e->getMessage());
     }
+
+    catch (\Exception $e) {
+        dd($e->getMessage());
+    }
+}
+
+
 
     // Update user
     public function update(Request $request, User $user)
