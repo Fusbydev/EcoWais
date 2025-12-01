@@ -178,7 +178,7 @@
                     <thead>
                         <tr>
                             <th>Time</th>
-                            <th>Reporter</th>
+                            <!--<th>Reporter</th>-->
                             <th>Type</th>
                             <th>Location</th>
                             <th>Priority</th>
@@ -190,7 +190,7 @@
     @foreach($reports as $report)
         <tr>
             <td>{{ $report->created_at ? $report->created_at->format('M d, Y h:i A') : '' }}</td>
-            <td>{{ $report->reporter->name ?? 'N/A' }}</td>
+            <!--<td>{{ $report->reporter->name ?? 'N/A' }}</td>-->
             <td>
                 @php
                     if ($report->issue_type === 'other') {
@@ -233,10 +233,6 @@
             <div class="card">
                 <h3>System Settings</h3>
                 <div class="grid-auto">
-                    <!--<button class="btn" onclick="manageRoutes()">Manage Routes</button>-->
-                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addDriverModal">
-                        Add New Driver
-                    </button>
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#manageLocationsModal">
                         Manage Locations
                     </button>
@@ -250,44 +246,6 @@
                 </div>
             </div>
 
-            <div class="modal fade" id="addDriverModal" tabindex="-1" aria-labelledby="addDriverModalLabel" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="addDriverModalLabel">➕ Add New Driver</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-
-                        <div class="modal-body">
-                            <form id="add-driver-form" action="{{ route('drivers.store') }}" method="POST">
-                                @csrf
-                                
-                                <div class="mb-3">
-                                    <label for="new-driver-name" class="form-label">Driver Name</label>
-                                    <input type="text" class="form-control" id="new-driver-name" name="name" required>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="new-driver-email" class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="new-driver-email" name="email" required>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="new-driver-phone" class="form-label">Phone Number</label>
-                                    <input type="tel" class="form-control" id="new-driver-phone" name="phone">
-                                </div>
-
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="submit" class="btn btn-success">Add Driver</button>
-                                </div>
-                            </form>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
 
             <div class="modal fade" id="addTruckModal" tabindex="-1" aria-labelledby="addTruckModalLabel" aria-hidden="true">
                 <div class="modal-dialog">
@@ -307,19 +265,23 @@
                             <p class="text-muted">Note: If the driver is already assigned to a truck, they will be disabled.</p>
                             <label for="driver_id" class="form-label">Driver Name</label>
                             <select name="driver_id" class="form-select">
-                                <option value="">Select Driver</option>
-                                @foreach($drivers as $driver)
-                                    @php
-                                        $assignedTruck = $driver->truck; // returns the Truck model if assigned
-                                    @endphp
-                                    <option value="{{ $driver->id }}" {{ $assignedTruck ? 'disabled' : '' }}>
-                                        {{ $driver->user->name ?? 'Unknown' }}
-                                        @if($assignedTruck)
-                                            (Truck ID: {{ $assignedTruck->truck_id }})
-                                        @endif
-                                    </option>
-                                @endforeach
-                            </select>
+                            <option value="">Select Driver</option>
+                            @foreach($drivers as $driver)
+                                @php
+                                    $assignedTruck = $driver->truck; // Truck model if assigned
+                                    $isDeactivated = $driver->user->status === 'deactivated';
+                                @endphp
+                                <option value="{{ $driver->id }}" {{ $assignedTruck || $isDeactivated ? 'disabled' : '' }}>
+                                    {{ $driver->user->name ?? 'Unknown' }}
+                                    @if($assignedTruck)
+                                        (Truck ID: {{ $assignedTruck->truck_id }})
+                                    @elseif($isDeactivated)
+                                        (Deactivated)
+                                    @endif
+                                </option>
+                            @endforeach
+                        </select>
+
                         </div>
                         <div class="mb-3">
                             <label for="initial_location" class="form-label">Initial Location</label>
@@ -381,10 +343,17 @@
                         <select class="form-select" id="adminId" name="adminId" required>
                             <option value="" selected>-- Select Admin --</option>
                             @foreach($users as $user)
-                                @if($user->role === 'barangay_admin')
+                            @if($user->role === 'barangay_admin')
+                                @php
+                                    $isAssigned = \App\Models\Location::where('adminId', $user->id)->exists();
+                                @endphp
+
+                                @if(!$isAssigned)
                                     <option value="{{ $user->id }}">{{ $user->name }}</option>
                                 @endif
-                            @endforeach
+                            @endif
+                        @endforeach
+
                         </select>
                     </div>
 

@@ -96,61 +96,78 @@
     </div>
 
     <!-- ADD USER MODAL -->
-    <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg"> <!-- Larger modal -->
+        <div class="modal-content">
 
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="addUserLabel">Add New User</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body">
-                    <form action="{{ route('users.store') }}" method="POST">
-                        @csrf
-                        <div class="mb-3">
-                            <label class="form-label">Full Name</label>
-                            <input type="text" name="name" class="form-control" placeholder="Enter full name" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Email Address</label>
-                            <input type="email" name="email" class="form-control" placeholder="Enter email" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Role</label>
-                            <select name="role" class="form-select" required>
-                                <option value="resident">Resident</option>
-                                <option value="barangay_waste_collector">Driver</option>
-                                <option value="barangay_admin">Barangay Admin</option>
-                                <option value="municipality_administrator">Municipality Admin</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <input type="password" name="password" class="form-control" placeholder="Enter password" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Status</label>
-                            <select name="status" class="form-select" required>
-                                <option value="activated">Activated</option>
-                                <option value="deactivated">Deactivated</option>
-                            </select>
-                        </div>
-
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="submit" class="btn btn-primary">Save User</button>
-                        </div>
-                    </form>
-                </div>
-
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="addUserLabel">Add New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+
+            <div class="modal-body">
+                <form action="{{ route('users.store') }}" method="POST">
+                    @csrf
+                    <div class="container-fluid">
+                        <div class="row g-3"> <!-- Grid gap for spacing -->
+
+                            <!-- Full Name -->
+                            <div class="col-md-6">
+                                <label class="form-label">Full Name</label>
+                                <input type="text" name="name" class="form-control" placeholder="Enter full name" required>
+                            </div>
+
+                            <!-- Email -->
+                            <div class="col-md-6">
+                                <label class="form-label">Email Address</label>
+                                <input type="email" name="email" class="form-control" placeholder="Enter email" required>
+                            </div>
+
+                            <!-- Phone Number -->
+                            <div class="col-md-6">
+                                <label class="form-label">Phone Number</label>
+                                <input type="number" name="phone" class="form-control" placeholder="Enter phone number" required>
+                            </div>
+
+                            <!-- Role -->
+                            <div class="col-md-6">
+                                <label class="form-label">Role</label>
+                                <select name="role" class="form-select" required>
+                                    <option value="barangay_waste_collector">Driver</option>
+                                    <option value="barangay_admin">Barangay Admin</option>
+                                    <option value="municipality_administrator">Municipality Admin</option>
+                                </select>
+                            </div>
+
+                            <!-- Password -->
+                            <div class="col-md-6">
+                                <label class="form-label">Password</label>
+                                <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="col-md-6">
+                                <label class="form-label">Status</label>
+                                <select name="status" class="form-select" required>
+                                    <option value="activated">Activated</option>
+                                    <option value="deactivated">Deactivated</option>
+                                </select>
+                            </div>
+
+                        </div> <!-- End Row -->
+                    </div> <!-- End Container -->
+
+                    <div class="modal-footer mt-3">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Save User</button>
+                    </div>
+                </form>
+            </div> <!-- End Modal Body -->
+
         </div>
     </div>
+</div>
+
 
     <!-- EDIT USER MODALS (Placed AFTER the table to prevent flicker) -->
     @foreach ($users as $user)

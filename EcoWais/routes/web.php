@@ -347,7 +347,6 @@ Route::get('municipality-admin/scheduling', function () {
     return view('municipality-admin.scheduling', compact('locations', 'trucks'));
 })->name('municipality.scheduling');
 
-Route::post('/drivers', [DriverController::class, 'store'])->name('drivers.store');
 Route::post('/trucks', [TruckController::class, 'store'])->name('trucks.store');
 Route::post('/pickup', [PickupController::class, 'store'])->name('pickup.store');
 Route::get('/municipality-admin/scheduling', [PickupController::class, 'index'])->name('municipality.scheduling');

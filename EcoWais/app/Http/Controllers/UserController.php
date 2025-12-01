@@ -16,44 +16,51 @@ class UserController extends Controller
     }
 
     // Store a new user
- public function store(Request $request)
+public function store(Request $request)
 {
     try {
-        $request->validate([
+        $validated = $request->validate([
             'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email',
+            'email'    => 'required|email',
             'password' => 'required|string|min:6',
             'role'     => 'required|string',
             'status'   => 'required|in:activated,deactivated',
+            'phone'    => 'nullable|string|max:20',
         ]);
 
-        User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password),
-            'role'     => $request->role,
-            'status'   => $request->status,
-        ]);
-
-        return redirect()->route('user-management')
-            ->with('success', 'User has been successfully created.');
-
-    } catch (\Illuminate\Database\QueryException $e) {
-
-        // Duplicate email error
-        if ($e->getCode() == 23000) {
+        // Check if email exists manually
+        if (\App\Models\User::where('email', $validated['email'])->exists()) {
             return redirect()->route('user-management')
                 ->with('error', 'A user with this email already exists.');
         }
 
-        // Other database errors
-        dd($e->getMessage());
-    }
+        // Create user
+        $user = User::create([
+    'name'         => $validated['name'],
+    'email'        => $validated['email'],
+    'password'     => Hash::make($validated['password']),
+    'role'         => $validated['role'],
+    'status'       => $validated['status'],
+    'phone_number' => $validated['phone'] ?? null,
+]);
 
-    catch (\Exception $e) {
+        // Only create driver if role is barangay_waste_collector
+        if ($validated['role'] === 'barangay_waste_collector') {
+            \App\Models\Driver::create([
+                'user_id' => $user->id,
+                'phone_number' => $validated['phone'] ?? null,
+            ]);
+        }
+
+        return redirect()->route('user-management')
+            ->with('success', 'User has been successfully created.');
+
+    } catch (\Exception $e) {
         dd($e->getMessage());
     }
 }
+
+
 
 
 

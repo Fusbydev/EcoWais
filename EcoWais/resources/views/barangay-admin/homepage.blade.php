@@ -213,6 +213,9 @@
             <option value="other">Other</option>
         </select>
     </div>
+<div class="form-group" id="driver-container" style="display:none;">
+    <label for="driver-id">Select Driver</label>
+</div>
 
     <div class="form-group">
         <label>Location (Street/Area)</label>
@@ -278,7 +281,8 @@
             @foreach($reports as $report)
                 <tr>
                     <td>{{ $report->id }}</td>
-                    <td>{{ $report->created_at->format('M d, Y h:i A') }}</td>
+                    <td>{{ \Carbon\Carbon::parse($report->incident_datetime)->format('M d, Y h:i A') }}</td>
+
                     <td>
                         @php
                             if ($report->issue_type === 'other') {
@@ -380,15 +384,44 @@
 </div>
 @endforeach
 
+@php
+$drivers = $truckData->map(function($d) {
+    return [
+        'user_id' => $d['driver_user_id'],
+        'driver_name' => $d['name'],
+        'status' => $d['status'] ?? 'Not Recorded',
+        'truck_id' => $d['truck_id'] ?? null
+    ];
+});
+@endphp
+
+
 <script>
-// ================================
-// REPORT ISSUE — DYNAMIC FIELDS
-// ================================
 document.addEventListener("DOMContentLoaded", function () {
 
     const issueType = document.getElementById("issue-type");
+    const driverContainer = document.getElementById("driver-container");
 
-    // Create fields
+    // Create driver dropdown
+    const driverDropdown = document.createElement("select");
+    driverDropdown.id = "driver-id";
+    driverDropdown.name = "driver_id";
+    driverDropdown.classList.add("form-control");
+    driverContainer.appendChild(driverDropdown); // append inside container
+
+    // Pass PHP array to JS
+    const drivers = @json($drivers);
+
+    drivers.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d.user_id;
+    opt.textContent = d.driver_name + (d.truck_id ? ` (Truck ID: ${d.truck_id})` : '');
+    // Remove any disabling based on status
+    driverDropdown.appendChild(opt);
+});
+
+
+    // Create "Other Issue" input
     const otherInput = document.createElement("input");
     otherInput.type = "text";
     otherInput.id = "other-issue";
@@ -396,45 +429,25 @@ document.addEventListener("DOMContentLoaded", function () {
     otherInput.placeholder = "Specify the issue";
     otherInput.style.display = "none";
     otherInput.classList.add("form-control");
-
-    const driverDropdown = document.createElement("select");
-    driverDropdown.id = "driver-id";
-    driverDropdown.name = "driver_id";
-    driverDropdown.style.display = "none";
-    driverDropdown.classList.add("form-control");
-
     issueType.parentNode.appendChild(otherInput);
-    issueType.parentNode.appendChild(driverDropdown);
 
+    // Event listener
     issueType.addEventListener("change", function () {
         if (this.value === "other") {
             otherInput.style.display = "block";
-            driverDropdown.style.display = "none";
-        }
-        else if (this.value === "driver-absent") {
-            driverDropdown.innerHTML = ""; // clear dropdown
-
-            if (window.cachedDrivers && window.cachedDrivers.length > 0) {
-                window.cachedDrivers.forEach(t => {
-                    const opt = document.createElement("option");
-                    opt.value = t.user_id;        // ✔ driver ID
-                    opt.textContent = t.driver_name; // ✔ driver name
-                    driverDropdown.appendChild(opt);
-                });
-                driverDropdown.style.display = "block";
-            } else {
-                driverDropdown.style.display = "none";
-            }
-
+            driverContainer.style.display = "none";
+        } else if (this.value === "driver-absent") {
+            driverContainer.style.display = "block";
             otherInput.style.display = "none";
-        }
-        else {
+        } else {
+            driverContainer.style.display = "none";
             otherInput.style.display = "none";
-            driverDropdown.style.display = "none";
         }
     });
+
 });
 </script>
+
 
 
 
