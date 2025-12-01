@@ -133,9 +133,18 @@ Route::get('/barangay-admin/homepage', function () {
     // Attendance stats
     $attendance = Attendance::all();
     $total = $attendance->count();
-    $absent = $attendance->where('status', 'Absent')->count();
-    $present = $attendance->where('status', 'Present')->count();
-    $late = $attendance->where('status', 'Late')->count();
+    $location = Location::where('adminId', $userId)->first();
+
+if ($location) {
+    // Filter attendances by location_id
+    $attendances = Attendance::where('location_id', $location->id)->get();
+
+    $absent  = $attendances->where('status', 'Absent')->count();
+    $present = $attendances->where('status', 'Present')->count();
+    $late    = $attendances->where('status', 'Late')->count();
+} else {
+    $absent = $present = $late = 0; // no location assigned
+}
 
     // Collectors (all trucks for now)
     $collectors1 = Truck::all();
