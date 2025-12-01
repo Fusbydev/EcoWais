@@ -150,7 +150,10 @@ if ($location) {
     $collectors1 = Truck::all();
 
     // Reports with driver information
-    $reports = BarangayReport::with('driver.user')->get();
+    $reports = BarangayReport::with('driver.user')
+                ->where('adminId', $userId)
+                ->orderBy('incident_datetime', 'desc')
+                ->get();
 
     // Get pickups for this admin's location
     $pickupDates = collect();

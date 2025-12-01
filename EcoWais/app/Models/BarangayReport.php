@@ -12,6 +12,7 @@ class BarangayReport extends Model
         'other_issue',
         'driver_id',
         'location',
+        'adminId',
         'incident_datetime',
         'priority',
         'description',

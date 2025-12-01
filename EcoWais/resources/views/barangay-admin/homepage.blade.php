@@ -217,6 +217,8 @@
     <label for="driver-id">Select Driver</label>
 </div>
 
+<input type="text" value="{{ session('user_id') }}" name="adminId">
+
     <div class="form-group">
         <label>Location (Street/Area)</label>
         <input type="text" id="issue-location" name="location" required>

@@ -20,6 +20,7 @@ class BarangayReportController extends Controller
                 'issue_type'        => 'required|string',
                 'other_issue'       => 'nullable|string',
                 'driver_id'         => 'nullable|integer', // this is user_id now
+                'adminId'          => 'required|integer',
                 'location'          => 'required|string|max:255',
                 'incident_datetime' => 'required|date',
                 'priority'          => 'required|in:low,medium,high',
@@ -55,6 +56,7 @@ class BarangayReportController extends Controller
                 'issue_type'        => $validated['issue_type'],
                 'other_issue'       => $validated['other_issue'] ?? null,
                 'driver_id'         => $driverId,
+                'adminId'          => $validated['adminId'],
                 'location'          => $validated['location'],
                 'incident_datetime' => $validated['incident_datetime'],
                 'priority'          => $validated['priority'],
@@ -80,10 +82,7 @@ class BarangayReportController extends Controller
         }
     }
 
-    public function history()
-{
-    $reports = BarangayReport::with('driver')->get();
-    return view('barangay-admin.homepage', compact('reports'));
-}
+
+
 
 }
