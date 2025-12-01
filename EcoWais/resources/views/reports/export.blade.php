@@ -108,6 +108,16 @@
         @endforeach
     </table>
 
+    <!-- Dashboard Section -->
+<h2>Waste Dashboard</h2>
+<table style="width:100%; margin-bottom:20px;">
+    <tr>
+        <td><strong>Waste Today:</strong> {{ $reports['todayTotal'] ?? 0 }} kg</td>
+        <td><strong>Waste This Month:</strong> {{ $reports['monthTotal'] ?? 0 }} kg</td>
+        <td><strong>Total Collections:</strong> {{ $reports['totalCollections'] ?? 0 }}</td>
+    </tr>
+</table>
+
     <!-- Collection Efficiency -->
     <h2>Collection Efficiency Report</h2>
     <ul>

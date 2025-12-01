@@ -6,26 +6,10 @@
     <div class="nav-links">
         <button 
             type="button" 
-            id="nav-admin-barangay"
-            class="{{ request()->routeIs('barangay.scheduling') ? 'active' : '' }}"
-            onclick="window.location.href=''">
-            Barangay Scheduling
-        </button>
-
-        <button 
-            type="button" 
             id="nav-driver"
             class="{{ request()->routeIs('barangay.waste.collector.homepage') ? 'active' : '' }}"
             onclick="window.location.href='{{  route('barangay.waste.collector.homepage') }}'">
             Driver
-        </button>
-
-        <button 
-            type="button" 
-            id="nav-tracking"
-            class="{{ request()->routeIs('map.view') ? 'active' : '' }}"
-            onclick="window.location.href='{{ route('map.view') }}'">
-            Map View
         </button>
 
         <div class="user-info">

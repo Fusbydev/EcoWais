@@ -8,52 +8,56 @@
             <div class="card">
     <h3>📍 Barangay Information</h3>
 
-    <div class="form-group">
-    <label>Select Your Barangay</label>
-    <select class="form-select" id="barangay">
-        <option value="" disabled selected>Select a barangay</option>
-        @foreach ($locations as $location)
-            <option 
-                value="{{ $location->id }}"  {{-- ID for reference, not used --}}
-                data-name="{{ $location->location }}">
-                {{ $location->location }}
-            </option>
-        @endforeach
-    </select>
+  <div class="form-group">
+    <label>Barangay</label>
+    @php
+        // Get the first location assigned to this admin
+        $adminLocation = $locations->firstWhere('adminId', session('user_id'));
+    @endphp
+
+    @if($adminLocation)
+        <h3>{{ $adminLocation->location }}</h3>
+    @else
+        <h3>—</h3>
+    @endif
 </div>
 
+   
 
-    <div id="barangay-info" style="margin-top: 1rem;">
-        <p><strong>Barangay:</strong> 
-            <span id="current-barangay">
-                {{ $selectedLocation->location ?? '—' }}
-            </span>
-        </p>
+<div id="barangay-info" style="margin-top: 1rem;">
+    <p><strong>Barangay:</strong> 
+        <span id="current-barangay">
+            {{ $adminLocation->location ?? '—' }}
+        </span>
+    </p>
 
-        <p><strong>Assigned Collectors:</strong> 
-            <span id="assigned-collectors">
-                {{ $collectors->count() ?? '—' }}
-            </span>
-        </p>
+@php
+    // Count collectors whose initial_location matches the admin location
+    $totalCollectors = $collectors1->where('initial_location', $adminLocation->location)->count();
+@endphp
 
-        <p><strong>Collector Names:</strong> 
-            <span id="collector-names">
-                @if(isset($collectors) && $collectors->count() > 0)
-                    {{ implode(', ', $collectors->pluck('user.name')->toArray()) }}
-                @else
-                    —
-                @endif
-            </span>
-        </p>
+<p><strong>Total Assigned Collectors:</strong> {{ $totalCollectors }}</p>
 
-        <p><strong>Collection Days:</strong> 
-            <span id="collection-days">
-                {{ $selectedLocation->collection_days ?? '—' }}
-            </span>
-        </p>
-    </div>
+<p><strong>Driver Names:</strong>
+<span id="driver-names">
+    @if($truckData->count() > 0)
+        {{ implode(', ', $truckData->pluck('name')->toArray()) }}
+    @else
+        —
+    @endif
+</span>
+</p>
+
+
+  <p><strong>Pickup Dates:</strong>
+    @if($pickupDates->count() > 0)
+        {{ implode(', ', $pickupDates->toArray()) }}
+    @else
+        —
+    @endif
+</p>
 </div>
-
+</div>
 
             <!-- Driver/Collector Attendance Tracking -->
             <div class="card">
@@ -61,22 +65,27 @@
                 <div class="alert alert-info" style="margin-bottom: 1rem;">
                     <strong>ℹ️ How to Mark Attendance:</strong>
                     <ul style="margin: 0.5rem 0 0 1.5rem;">
-                        <li>Click "✓ Mark Attendance" to record when a driver/collector arrives</li>
-                        <li>Click "⏰ Time Out" button to record when they finish their shift</li>
-                        <li>Mark as "Present", "Late", or "Absent" based on their arrival time</li>
-                        <li>Standard shift: 1:00 AM - 5:00 PM (Late if after 7:00 AM)</li>
-                    </ul>
+    <li>Click "Time In" to record when a driver/collector starts their shift for today’s pickup.</li>
+    <li>Click "Time Out" to record when they finish their shift for the current pickup.</li>
+    <li>Attendance will automatically be marked as "Present", "Late", or "Absent" based on arrival time.</li>
+    <li>Standard shift: 1:00 AM - 5:00 PM. Arrivals after 7:00 AM are considered Late.</li>
+</ul>
+
                 </div>
                 <div class="search-filter">
-                    <input type="date" id="attendance-date" value="">
+                    <!--<input type="date" id="attendance-date" value="">
                     <button class="btn btn-info" onclick="loadAttendanceData()">📅 Load Attendance</button>
                     <button class="btn btn-success" onclick="showMarkAttendance()">✓ Mark Attendance</button>
                     <button class="btn btn-warning" onclick="showQuickAttendance()">⚡ Quick Mark All</button>
-                    <button class="btn btn-secondary" onclick="exportAttendance()">📊 Export</button>
+                    <button class="btn btn-secondary" onclick="exportAttendance()">📊 Export</button>-->
                 </div>
                 
                 <div class="table-responsive">
-                    <table class="table" id="trucks-table">
+                     @php
+    use Carbon\Carbon;
+    $today = Carbon::now('Asia/Manila')->toDateString();
+@endphp
+<table class="table" id="trucks-table">
     <thead>
         <tr>
             <th>Driver/Collector Name</th>
@@ -86,15 +95,67 @@
             <th>Time Out</th>
             <th>Hours Worked</th>
             <th>Status</th>
-            <th>Actions</th>
         </tr>
     </thead>
     <tbody id="trucks-tbody">
-        <tr>
-            <td colspan="8" class="text-center">Select a barangay to see assigned trucks.</td>
-        </tr>
+        @forelse($truckData as $truck)
+            @php
+                // Filter sessionPickups for today's date
+                $hasTodayPickup = collect($truck['sessionPickups'])
+                                    ->contains($today);
+            @endphp
+
+            @if($hasTodayPickup)
+            <tr>
+                <td>{{ $truck['name'] }}</td>
+                <td>{{ $truck['role'] }}</td>
+                <td>{{ $truck['truck_id'] }}</td>
+
+                {{-- Time In --}}
+<td>
+    @if($truck['time_in'] === '-')
+        <form action="{{ route('attendance.timein') }}" method="POST">
+            @csrf
+            <input type="hidden" name="user_id" value="{{ $truck['driver_user_id'] }}">
+            <input type="hidden" name="location_id" value="{{ $selectedLocation->id }}">
+            <input type="hidden" name="session_pickup" value="{{ $today }}">
+            <button type="submit" class="btn btn-sm btn-success">Time In</button>
+        </form>
+    @else
+        {{ $truck['time_in'] }}
+    @endif
+</td>
+
+                {{-- Time Out --}}
+                <td>
+                    @if($truck['time_out'] === '-')
+                        <form action="{{ route('attendance.timeout') }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="user_id" value="{{ $truck['driver_user_id'] }}">
+                            <input type="hidden" name="location_id" value="{{ $selectedLocation->id }}">
+                            <button type="submit" class="btn btn-sm btn-warning">Time Out</button>
+                        </form>
+                    @else
+                        {{ $truck['time_out'] }}
+                    @endif
+                </td>
+
+                {{-- Hours Worked --}}
+                <td>{{ $truck['hours_worked'] }}</td>
+
+                {{-- Status --}}
+                <td>{{ $truck['status'] }}</td>
+
+            </tr>
+            @endif
+        @empty
+            <tr>
+                <td colspan="8" class="text-center">Select a barangay to see assigned trucks.</td>
+            </tr>
+        @endforelse
     </tbody>
 </table>
+
 
                 </div>
             </div>
@@ -320,139 +381,6 @@
 @endforeach
 
 <script>
-// ================================
-// BARANGAY CHANGE HANDLER
-// ================================
-document.getElementById('barangay').addEventListener('change', function () {
-    let selectedOption = this.options[this.selectedIndex];
-    let barangayName = selectedOption.getAttribute('data-name');
-    let barangayId = this.value;
-
-    document.getElementById('current-barangay').textContent = barangayName;
-
-    // ===== Fetch collectors =====
-    fetch(`/barangay/${encodeURIComponent(barangayName)}/collectors`)
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById('assigned-collectors').textContent = data.length;
-            let names = data.map(c => c.driver_name).join(", ");
-            document.getElementById('collector-names').textContent = names || "None";
-        })
-        .catch(err => console.error("Error fetching collectors:", err));
-
-    // ===== Fetch trucks for this barangay =====
-    fetch(`/barangay/${barangayId}/trucks`)
-        .then(res => res.json())
-        .then(trucks => {
-            const tbody = document.getElementById('trucks-tbody');
-            tbody.innerHTML = '';
-
-            window.cachedDrivers = trucks; // store for issue report dropdown
-
-            if (!trucks.length) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center">No trucks assigned to this barangay.</td></tr>`;
-                return;
-            }
-
-            trucks.forEach(truck => {
-
-                // TIME IN
-                let timeInCell = '';
-                if (!truck.time_in) {
-                    timeInCell = `
-                        <form method="POST" action="/attendance/time-in"
-                              class="ajax-attendance-form"
-                              onsubmit="return confirm('Record time in for ${truck.driver_name}?');">
-                            <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]').content}">
-                            <input type="hidden" name="user_id" value="${truck.user_id}">
-                            <input type="hidden" name="location_id" value="${barangayId}">
-                            <button type="submit" class="btn btn-success btn-sm">✓ Time In</button>
-                        </form>
-                    `;
-                } else {
-                    timeInCell = `<span class="text-success">${new Date(truck.time_in).toLocaleTimeString()}</span>`;
-                }
-
-                // TIME OUT
-                let timeOutCell = '';
-                if (!truck.time_out) {
-                    if (truck.time_in) {
-                        timeOutCell = `
-                            <form method="POST" action="/attendance/time-out"
-                                  class="ajax-attendance-form"
-                                  onsubmit="return confirm('Record time out for ${truck.driver_name}?');">
-                                <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]').content}">
-                                <input type="hidden" name="user_id" value="${truck.user_id}">
-                                <input type="hidden" name="location_id" value="${barangayId}">
-                                <button type="submit" class="btn btn-warning btn-sm">⏰ Time Out</button>
-                            </form>
-                        `;
-                    } else {
-                        timeOutCell = `<span class="text-muted">—</span>`;
-                    }
-                } else {
-                    timeOutCell = `<span class="text-warning">${new Date(truck.time_out).toLocaleTimeString()}</span>`;
-                }
-
-                // HOURS WORKED
-                let hoursWorked = '—';
-                if (truck.time_in && truck.time_out) {
-                    const diff = new Date(truck.time_out) - new Date(truck.time_in);
-                    const hours = Math.floor(diff / (1000 * 60 * 60));
-                    const minutes = Math.floor((diff / (1000 * 60)) % 60);
-                    hoursWorked = `${hours}h ${minutes}m`;
-                }
-
-                // STATUS
-                let statusCell = truck.status || 'Absent';
-                let statusClass =
-                    truck.status === 'Present' ? 'text-success' :
-                    truck.status === 'Late' ? 'text-warning' : 'text-danger';
-
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${truck.driver_name}</td>
-                        <td>${truck.role}</td>
-                        <td>${truck.truck_id}</td>
-                        <td>${timeInCell}</td>
-                        <td>${timeOutCell}</td>
-                        <td><strong>${hoursWorked}</strong></td>
-                        <td><span class="${statusClass}">${statusCell}</span></td>
-                        <td>
-                            <a href="#" class="btn btn-primary btn-sm">View</a>
-                            <a href="#" class="btn btn-warning btn-sm">Edit</a>
-                        </td>
-                    </tr>
-                `;
-            });
-        })
-        .catch(err => console.error("Error fetching trucks:", err));
-});
-
-// ================================
-// AJAX ATTENDANCE SUBMIT
-// ================================
-document.addEventListener('submit', function(e) {
-    if (e.target.classList.contains('ajax-attendance-form')) {
-        e.preventDefault();
-
-        const form = e.target;
-        const action = form.action;
-        const formData = new FormData(form);
-
-        fetch(action, {
-            method: 'POST',
-            body: formData
-        })
-        .then(() => {
-            const button = form.querySelector('button');
-            button.disabled = true;
-            button.textContent += ' ✅';
-        })
-        .catch(err => console.error(err));
-    }
-});
-
 // ================================
 // REPORT ISSUE — DYNAMIC FIELDS
 // ================================

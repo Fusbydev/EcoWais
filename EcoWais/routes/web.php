@@ -11,13 +11,17 @@ use App\Models\Pickup;
 use App\Models\Truck;
 use App\Models\User;
 use App\Models\Attendance;
+use App\Models\WasteCollection;
 use App\Models\BarangayReport;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DriverReportController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\BarangayReportController;
+use App\Http\Controllers\WasteController;
+use Carbon\Carbon;
 Route::get('/dashboard', [PageController::class, 'dashboard'])->name('dashboard');
 Route::get('/tracking', [PageController::class, 'tracking'])->name('tracking');
 
@@ -62,43 +66,105 @@ Route::post('/login', [AuthController::class, 'login'])->name('login');
 
 Route::get('/barangay-admin/homepage', function () {
 
-    $locations = Location::all();
-    $barangayId = request('barangay');
-    $attendance = Attendance::all();
+    $userId = session('user_id'); // or Auth::id() if using Laravel Auth
 
+    // All locations (for dropdowns, etc.)
+    $locations = Location::all();
+
+    // Get the location managed by this admin
+    $selectedLocation = Location::where('adminId', $userId)->first();
+
+    // Initialize truckData collection for the table
+    $truckData = collect();
+
+    if ($selectedLocation) {
+        
+         $sessionPickups = Pickup::where('location_id', $selectedLocation->id)
+    ->orderBy('pickup_date', 'asc')
+    ->pluck('pickup_date'); // <-- use pluck to get only the dates
+
+        // Get trucks assigned to this location with drivers
+        $trucks = Truck::with('driver.user')
+            ->where('initial_location', $selectedLocation->location)
+            ->get();
+
+        foreach ($trucks as $truck) {
+            $driver = $truck->driver->user ?? null;
+
+            if ($driver) {
+                // Get today's attendance for this driver
+                $attendance = Attendance::where('user_id', $driver->id)
+                    ->whereDate('created_at', now()->toDateString())
+                    ->first();
+
+                $timeIn = $attendance->time_in ?? '-';
+                $timeOut = $attendance->time_out ?? '-';
+                $status = $attendance->status ?? 'Not Recorded';
+
+                // Calculate hours worked if both time in/out exist
+                $timeIn = $attendance->time_in ?? null;
+                $timeOut = $attendance->time_out ?? null;
+                $status = $attendance->status ?? 'Not Recorded';
+
+                $hoursWorked = '-';
+                if ($timeIn && $timeOut) {
+                    $hoursWorked = \Carbon\Carbon::parse($timeIn)
+                        ->diffInHours(\Carbon\Carbon::parse($timeOut));
+                }
+
+
+                $truckData->push([
+                    'name' => $driver->name,
+                    'role' => $driver->role,
+                    'truck_id' => $truck->id,
+                    'driver_user_id' => $driver->id, // <-- needed for attendance forms
+                    'time_in' => $timeIn ?? '-',
+                    'time_out' => $timeOut ?? '-',
+                    'hours_worked' => $hoursWorked,
+                    'status' => $status,
+                    'sessionPickups' => $sessionPickups
+                ]);
+
+
+            }
+        }
+    }
+
+    // Attendance stats
+    $attendance = Attendance::all();
     $total = $attendance->count();
     $absent = $attendance->where('status', 'Absent')->count();
     $present = $attendance->where('status', 'Present')->count();
     $late = $attendance->where('status', 'Late')->count();
 
-    $selectedLocation = null;
-    $trucks = collect();
-    $collectors = collect();
+    // Collectors (all trucks for now)
+    $collectors1 = Truck::all();
 
-    if ($barangayId) {
-        $selectedLocation = Location::find($barangayId);
-
-        $trucks = Truck::with(['driver.user'])
-            ->where('initial_location', $selectedLocation->location)
-            ->get();
-
-        $collectors = $selectedLocation->collectors ?? collect();
-    }
-
+    // Reports with driver information
     $reports = BarangayReport::with('driver.user')->get();
 
+    // Get pickups for this admin's location
+    $pickupDates = collect();
+    if ($selectedLocation) {
+        $pickupDates = Pickup::where('location_id', $selectedLocation->id)
+            ->pluck('pickup_date');
+    }
 
-    return view('barangay-admin.homepage', compact(
-        'locations',
-        'selectedLocation',
-        'trucks',
-        'collectors',
-        'absent',
-        'present',
-        'late',
-        'reports' // ← REQUIRED
-    ));
+return view('barangay-admin.homepage', compact(
+    'locations',
+    'selectedLocation',
+    'truckData',
+    'absent',
+    'present',
+    'late',
+    'reports',
+    'collectors1',
+    'pickupDates',
+));
+
 })->name('barangay.admin.homepage');
+
+
 
 // routes/web.php
 Route::get('/barangay/{id}/trucks', [DriverController::class, 'getTrucks'])->name('barangay.trucks');
@@ -110,6 +176,8 @@ Route::post('/attendance/time-out', [AttendanceController::class, 'timeOut'])->n
 use Illuminate\Support\Facades\DB;
 
 Route::get('barangay-waste-collector/homepage', function () {
+
+    $locations = Location::all();
 
     $userId = session('user_id');
     $driver = DB::table('drivers')->where('user_id', $userId)->first();
@@ -130,30 +198,46 @@ Route::get('barangay-waste-collector/homepage', function () {
         ->get();
 
     foreach ($scheduledPickups as $pickup) {
-    $decoded = json_decode($pickup->truck_pickups, true);
-    $pickupPoints = [];
+        $decoded = json_decode($pickup->truck_pickups, true);
+        $pickupPoints = [];
 
-    if (is_array($decoded)) {
-        foreach ($decoded as $point) {
-            if (isset($point['lat'], $point['lng'])) {
-                $pickupPoints[] = [
-                    'lat' => $point['lat'],
-                    'lng' => $point['lng'],
-                    'timeWindow' => $point['timeWindow'] ?? null
-                ];
+        if (is_array($decoded)) {
+            foreach ($decoded as $point) {
+                if (isset($point['lat'], $point['lng'])) {
+                    $pickupPoints[] = [
+                        'lat' => $point['lat'],
+                        'lng' => $point['lng'],
+                        'timeWindow' => $point['timeWindow'] ?? null
+                    ];
+                }
             }
         }
+
+        $pickup->points = $pickupPoints;
     }
 
-    $pickup->points = $pickupPoints;
-}
+    // Waste totals for dashboard
+    $today = Carbon::now()->toDateString();
+    $month = Carbon::now()->format('Y-m');
 
+    $todayTotal = WasteCollection::whereDate('pickup_date', $today)
+        ->sum('kilos');
+
+    $monthTotal = WasteCollection::where('pickup_date', 'like', "$month%")
+        ->sum('kilos');
 
     return view('barangay-waste-collector.homepage', [
         'scheduledPickups' => $scheduledPickups,
-        'driver' => $driver
+        'driver' => $driver,
+        'locations' => $locations,
+        'todayTotal' => $todayTotal,
+        'monthTotal' => $monthTotal
     ]);
 })->name('barangay.waste.collector.homepage');
+
+
+Route::post('/waste/save', [WasteController::class, 'store'])->name('waste.store');
+
 
 Route::post('pickup/{pickup}/complete-point', function (Request $request, $pickup) {
     $request->validate([
@@ -200,13 +284,61 @@ Route::get('/reports', [ReportController::class, 'index'])->name('reports.index'
 Route::get('/reports/generate', [ReportController::class, 'generatePdf'])->name('reports.generate.pdf');
 
 
+Route::post('/locations/store', [LocationController::class, 'store'])->name('locations.store');
 //municipality-admin
 Route::get('municipality-admin/admin', function () {
     $drivers = Driver::with('user', 'truck')->get();
+    $users = User::all();
     $locations = Location::all();
     $trucks = Truck::all();
     $reports = BarangayReport::all();
-    return view('municipality-admin.admin', compact('locations', 'drivers', 'trucks', 'reports'));
+
+    // --- Waste Dashboard Data ---
+    $todayTotal = WasteCollection::whereDate('pickup_date', now())->sum('kilos');
+
+    $monthTotal = WasteCollection::whereMonth('pickup_date', now()->month)
+                    ->whereYear('pickup_date', now()->year)
+                    ->sum('kilos');
+
+    $totalCollections = WasteCollection::count();
+
+    // Daily waste for current month (Line chart)
+    $dailyDataQuery = WasteCollection::select(
+        DB::raw('DATE(pickup_date) as date'),
+        DB::raw('SUM(kilos) as total')
+    )
+    ->whereMonth('pickup_date', now()->month)
+    ->whereYear('pickup_date', now()->year)
+    ->groupBy('date')
+    ->orderBy('date')
+    ->get();
+
+    $dailyLabels = $dailyDataQuery->pluck('date');
+    $dailyData = $dailyDataQuery->pluck('total');
+
+    // Waste by type (Doughnut chart)
+    $typeLabels = ['Plastic', 'Biodegradable', 'Metal', 'Glass'];
+
+$typeDataQuery = WasteCollection::select(
+    'waste_type',
+    DB::raw('SUM(kilos) as total')
+)
+->whereIn('waste_type', $typeLabels)
+->groupBy('waste_type')
+->get()
+->keyBy('waste_type');
+
+$typeData = [];
+foreach ($typeLabels as $label) {
+    $typeData[$label] = isset($typeDataQuery[$label]) ? $typeDataQuery[$label]->total : 0;
+}
+
+
+    return view('municipality-admin.admin', compact(
+        'locations', 'drivers', 'trucks', 'reports', 'users',
+        'todayTotal', 'monthTotal', 'totalCollections',
+        'dailyLabels', 'dailyData', 'typeLabels', 'typeData'
+    ));
 })->name('municipality.admin');
 
 Route::get('municipality-admin/scheduling', function () {

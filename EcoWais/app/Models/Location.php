@@ -9,12 +9,19 @@ class Location extends Model
 {
     use HasFactory;
 
-    // If your table name is not the plural of the model, specify it
-    // protected $table = 'locations';
+    protected $fillable = [
+        'location',   // Barangay name
+        'adminId',    // Assigned admin user ID
+        'latitude',
+        'longitude',
+    ];
 
-    // Specify which fields are mass assignable
-    protected $fillable = ['location'];
+    // Timestamps are enabled (created_at, updated_at)
+    public $timestamps = true;
 
-    // If you don’t have timestamps in the table
-    public $timestamps = false;
+    // Optional: define relationship to User (admin)
+    public function admin()
+    {
+        return $this->belongsTo(User::class, 'adminId');
+    }
 }

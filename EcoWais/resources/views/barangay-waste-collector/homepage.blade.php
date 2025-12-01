@@ -63,6 +63,125 @@
                 </div>
             </div>
 
+
+
+            <div class="card">
+                <div class="container mt-4">
+
+                    <!-- DASHBOARD ROW -->
+                    <div class="row mb-4">
+
+                       <!-- Total Waste Today -->
+<div class="col-md-6 mb-3">
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <h5 class="card-title">Waste Collected Today</h5>
+            <h2 class="fw-bold text-success">{{ $todayTotal ?? 0 }} kg</h2>
+            <p class="text-muted mb-0">As of {{ now()->format('F d, Y') }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Total Waste This Month -->
+<div class="col-md-6 mb-3">
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <h5 class="card-title">Waste Collected This Month</h5>
+            <h2 class="fw-bold text-primary">{{ $monthTotal ?? 0 }} kg</h2>
+            <p class="text-muted mb-0">Month of {{ now()->format('F Y') }}</p>
+        </div>
+    </div>
+</div>
+
+
+                    </div>
+
+
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-primary text-white py-3 d-flex align-items-center">
+                        <i class="bi bi-recycle fs-4 me-2"></i>
+
+                        @if (session('successWaste'))
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                {{ session('success') }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        @endif
+                        <h5 class="mb-0">Add Waste Collection Entry</h5>
+                    </div>
+
+                    <div class="card-body">
+
+                        <form method="POST" action="{{ route('waste.store') }}">
+
+                            @csrf
+
+                            <div class="row g-4">
+                        <input type="hidden" name="collector_id" value="{{ session('user_id') }}">
+
+                                <!-- Location -->
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Location</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light"><i class="bi bi-geo-alt"></i></span>
+                                        <select name="location_id" class="form-select" required>
+                                            @foreach($locations as $loc)
+                                                <option value="{{ $loc->id }}">{{ $loc->location }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Date -->
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Collection Date</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light"><i class="bi bi-calendar-date"></i></span>
+                                        <input type="date" name="waste_date" class="form-control" required>
+                                    </div>
+                                </div>
+
+                                <!-- Weight -->
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Waste Weight (kg)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light"><i class="bi bi-box-seam"></i></span>
+                                        <input type="number" name="weight" class="form-control" step="0.01" placeholder="Enter kilos" required>
+                                    </div>
+                                </div>
+
+                                <!-- Waste Type -->
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Waste Type</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light"><i class="bi bi-tags"></i></span>
+                                        <select name="waste_type" class="form-select" required>
+                                            <option value="">Select Type</option>
+                                            <option value="Plastic">Plastic</option>
+                                            <option value="Biodegradable">Biodegradable</option>
+                                            <option value="Metal">Metal</option>
+                                            <option value="Glass">Glass</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- Divider -->
+                            <hr class="my-4">
+
+                            <div class="text-end">
+                                <button class="btn btn-primary px-4">
+                                    <i class="bi bi-save2 me-1"></i> Save Entry
+                                </button>
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+                </div>
+                </div>
+
             <div class="card">
                 @if(session('success'))
                 <div class="alert alert-success">{{ session('success') }}</div>

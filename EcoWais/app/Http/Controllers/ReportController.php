@@ -62,12 +62,84 @@ class ReportController extends Controller
         )
         ->first();
 
+      // --- Waste Dashboard Stats ---
+    $todayTotal = DB::table('waste_collections')
+                    ->whereDate('pickup_date', now())
+                    ->sum('kilos');
+
+    $monthTotal = DB::table('waste_collections')
+                    ->whereMonth('pickup_date', now()->month)
+                    ->whereYear('pickup_date', now()->year)
+                    ->sum('kilos');
+
+    $totalCollections = DB::table('waste_collections')->count();
+
+    // --- Waste by Type ---
+    $typeDataQuery = DB::table('waste_collections')
+                    ->select('waste_type', DB::raw('SUM(kilos) as total'))
+                    ->groupBy('waste_type')
+                    ->pluck('total','waste_type')
+                    ->toArray();
+
+    $typeLabels = ['Plastic', 'Biodegradable', 'Metal', 'Glass'];
+    $typeData = [];
+    foreach ($typeLabels as $label) {
+        $typeData[] = $typeDataQuery[$label] ?? 0;
+    }
+
+    // --- Daily Waste for the Month ---
+    $dailyDataQuery = DB::table('waste_collections')
+                    ->select(DB::raw('DATE(pickup_date) as date'), DB::raw('SUM(kilos) as total'))
+                    ->whereMonth('pickup_date', now()->month)
+                    ->groupBy('date')
+                    ->orderBy('date')
+                    ->get();
+
+    $dailyLabels = $dailyDataQuery->pluck('date')->map(fn($d) => \Carbon\Carbon::parse($d)->format('d M'))->toArray();
+    $dailyData = $dailyDataQuery->pluck('total')->toArray();
+
+    // --- Generate chart images using QuickChart ---
+// Daily Waste Chart
+$dailyChartUrl = 'https://quickchart.io/chart?c=' . urlencode(json_encode([
+    'type' => 'line',
+    'data' => [
+        'labels' => $dailyLabels, // array of dates
+        'datasets' => [
+            [
+                'label' => 'Daily Waste (kg)',
+                'data' => $dailyData, // array of daily totals
+                'borderColor' => 'rgb(54, 162, 235)',
+                'backgroundColor' => 'rgba(54, 162, 235, 0.2)',
+            ],
+        ],
+    ],
+]));
+
+// Waste by Type Chart
+$typeChartUrl = 'https://quickchart.io/chart?c=' . urlencode(json_encode([
+    'type' => 'doughnut',
+    'data' => [
+        'labels' => $typeLabels, // ['Plastic','Biodegradable','Metal','Glass']
+        'datasets' => [
+            [
+                'data' => $typeData, // corresponding kg totals
+                'backgroundColor' => ['#36a2eb','#4bc0c0','#ffcd56','#ff6384'],
+            ],
+        ],
+    ],
+]));
+
     $reports = [
         'fleet' => $fleet,
         'collection' => $collection,
         'residentIssues' => $residentIssues,
         'driverIssues' => $driverIssues,
-        'environment' => $environment
+        'environment' => $environment,
+        'todayTotal' => $todayTotal,
+        'monthTotal' => $monthTotal,
+        'totalCollections' => $totalCollections,
+        'dailyChartUrl' => $dailyChartUrl,
+        'typeChartUrl' => $typeChartUrl
     ];
 
     $pdf = PDF::loadView('reports.export', compact('reports'));

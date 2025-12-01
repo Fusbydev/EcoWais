@@ -24,6 +24,88 @@
                 </div>
             </div>
 
+
+<div class="card">
+    <div class="container mt-5">
+
+    <!-- DASHBOARD CARDS -->
+    <div class="row g-4 mb-4">
+        <!-- Waste Collected Today -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex align-items-center">
+                    <i class="bi bi-recycle text-success fs-1 me-3"></i>
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Waste Collected Today</h6>
+                        <h2 class="fw-bold text-success mb-1">{{ $todayTotal ?? 0 }} kg</h2>
+                        <small class="text-muted">As of {{ now()->format('F d, Y') }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Waste Collected This Month -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex align-items-center">
+                    <i class="bi bi-calendar-month text-primary fs-1 me-3"></i>
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Waste Collected This Month</h6>
+                        <h2 class="fw-bold text-primary mb-1">{{ $monthTotal ?? 0 }} kg</h2>
+                        <small class="text-muted">Month of {{ now()->format('F Y') }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Collection Entries -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex align-items-center">
+                    <i class="bi bi-clipboard-data text-warning fs-1 me-3"></i>
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Total Collections</h6>
+                        <h2 class="fw-bold text-warning mb-1">{{ $totalCollections ?? 0 }}</h2>
+                        <small class="text-muted">All-time entries</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRAPHS SECTION -->
+    <div class="row g-4">
+        <!-- Daily Waste Chart -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-primary text-white d-flex align-items-center">
+                    <i class="bi bi-bar-chart-fill fs-5 me-2"></i>
+                    <span>Daily Waste Collection (kg)</span>
+                </div>
+                <div class="card-body">
+                    <canvas id="dailyWasteChart" style="min-height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Waste by Type -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-success text-white d-flex align-items-center">
+                    <i class="bi bi-pie-chart-fill fs-5 me-2"></i>
+                    <span>Waste Collected by Type</span>
+                </div>
+                <div class="card-body">
+                    <canvas id="wasteTypeChart" style="min-height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+</div>
+
             <div class="card">
                 <h3>Fleet Management</h3>
 
@@ -151,16 +233,19 @@
             <div class="card">
                 <h3>System Settings</h3>
                 <div class="grid-auto">
-                    <button class="btn" onclick="manageRoutes()">Manage Routes</button>
+                    <!--<button class="btn" onclick="manageRoutes()">Manage Routes</button>-->
                     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addDriverModal">
                         Add New Driver
                     </button>
-                    <button class="btn" onclick="systemMaintenance()">System Maintenance</button>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#manageLocationsModal">
+                        Manage Locations
+                    </button>
+
 
                     <a href="{{ route('reports.generate.pdf') }}" class="btn btn-primary">
                         Generate PDF Report
                     </a>
-                    <button class="btn" onclick="backupData()">Backup Data</button>
+                    <!--<button class="btn" onclick="backupData()">Backup Data</button>-->
                     <a href="{{ route('user-management') }}" class="btn btn-primary">User Management</a></a>
                 </div>
             </div>
@@ -260,9 +345,189 @@
                 </div>
                 </div>
         </div>
-
     </div>
+
+    <!-- Location management modal -->
+<div class="modal fade" id="manageLocationsModal" tabindex="-1" aria-labelledby="manageLocationsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="manageLocationsLabel">Add Barangay</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <form method="POST" action="{{ route('locations.store') }}">
+                @csrf <!-- <-- CSRF token added -->
+                <div class="modal-body">
+
+                    <p class="text-muted">Pin the location (barangay) on the map</p>
+
+                    <!-- Map Area -->
+                    <div class="mb-3">
+                        <label class="form-label">Pin Location on Map</label>
+                        <div id="map" style="height: 350px; width: 100%; border-radius: 8px;"></div>
+                    </div>
+
+                    <!-- Barangay Name -->
+                    <div class="mb-3">
+                        <label for="location" class="form-label">Barangay Name</label>
+                        <input type="text" class="form-control" id="location" name="location" required>
+                    </div>
+
+                    <!-- Admin Dropdown -->
+                    <div class="mb-3">
+                        <label for="adminId" class="form-label">Assigned Admin</label>
+                        <select class="form-select" id="adminId" name="adminId" required>
+                            <option value="" selected>-- Select Admin --</option>
+                            @foreach($users as $user)
+                                @if($user->role === 'barangay_admin')
+                                    <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Latitude -->
+                    <div class="mb-3">
+                        <label for="latitude" class="form-label">Latitude</label>
+                        <input type="text" class="form-control" id="latitude" name="latitude" readonly required>
+                    </div>
+
+                    <!-- Longitude -->
+                    <div class="mb-3">
+                        <label for="longitude" class="form-label">Longitude</label>
+                        <input type="text" class="form-control" id="longitude" name="longitude" readonly required>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-success">Save Changes</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+const dailyCtx = document.getElementById('dailyWasteChart').getContext('2d');
+    new Chart(dailyCtx, {
+        type: 'bar',
+        data: {
+            labels: {!! json_encode($dailyLabels) !!},
+            datasets: [{
+                label: 'Waste Collected (kg)',
+                data: {!! json_encode($dailyData) !!},
+                backgroundColor: '#4dabf7'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                x: { title: { display: true, text: 'Date' } },
+                y: { title: { display: true, text: 'Kg' }, beginAtZero: true }
+            }
+        }
+    });
+
+    // Waste by Type Chart
+    const typeCtx = document.getElementById('wasteTypeChart').getContext('2d');
+    new Chart(typeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {!! json_encode(array_keys($typeData)) !!},
+            datasets: [{
+                label: 'Waste by Type (kg)',
+                data: {!! json_encode(array_values($typeData)) !!},
+                backgroundColor: ['#f06595','#51cf66','#fcc419','#339af0']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+
+ document.addEventListener('DOMContentLoaded', function () {
+    let map;
+    let marker;
+
+    const modalEl = document.getElementById('manageLocationsModal');
+
+    modalEl.addEventListener('shown.bs.modal', function () {
+        // Initialize map only once
+        if (!map) {
+            map = L.map('map').setView([13.411, 121.180], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Click to place marker
+            map.on('click', function(e) {
+                if (marker) map.removeLayer(marker);
+                marker = L.marker(e.latlng, { draggable: true }).addTo(map);
+
+                // Update lat/lng inputs
+                document.getElementById('latitude').value = e.latlng.lat.toFixed(6);
+                document.getElementById('longitude').value = e.latlng.lng.toFixed(6);
+
+                // Reverse geocode to fill Barangay name
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.address) {
+                            const barangay = data.address.suburb || data.address.village || data.address.hamlet || '';
+                            if (barangay) {
+                                document.getElementById('location').value = barangay;
+                            }
+                        }
+                    })
+                    .catch(err => console.warn('Reverse geocoding failed', err));
+
+                // Update lat/lng if marker is dragged
+                marker.on('dragend', function(ev) {
+                    const p = ev.target.getLatLng();
+                    document.getElementById('latitude').value = p.lat.toFixed(6);
+                    document.getElementById('longitude').value = p.lng.toFixed(6);
+
+                    // Update Barangay name on drag
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${p.lat}&lon=${p.lng}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.address) {
+                                const barangay = data.address.suburb || data.address.village || data.address.hamlet || '';
+                                if (barangay) {
+                                    document.getElementById('location').value = barangay;
+                                }
+                            }
+                        })
+                        .catch(err => console.warn('Reverse geocoding failed', err));
+                });
+            });
+        }
+
+        // Fix map sizing after modal opens
+        setTimeout(function() {
+            map.invalidateSize();
+        }, 200);
+    });
+});
+
 document.addEventListener('DOMContentLoaded', function () {
     const searchInput = document.getElementById('fleet-search');
     const statusFilter = document.getElementById('fleet-status-filter');

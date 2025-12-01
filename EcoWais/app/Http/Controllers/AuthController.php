@@ -55,7 +55,7 @@ class AuthController extends Controller
             return redirect()->route('barangay.waste.collector.homepage');
 
         case 'municipality_administrator':
-            return redirect()->route('municipality.dashboard');
+            return redirect()->route('municipality.admin');
 
         default:
             return redirect('/');

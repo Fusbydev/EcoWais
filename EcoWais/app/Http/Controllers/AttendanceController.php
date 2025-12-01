@@ -40,40 +40,52 @@ public function timeIn(Request $request)
     // Debug request
     \Log::debug('Time In Request:', $request->all());
 
+    // Get current time in Asia/Manila timezone
+    $now = \Carbon\Carbon::now('Asia/Manila');
+    $hour = (int) $now->format('H'); // 0-23
+
+    // Determine status: 1AM-7AM = Present, after 7AM = Late
+    $status = ($hour >= 1 && $hour < 7) ? 'Present' : (($hour >= 7) ? 'Late' : 'Present');
+
     $attendance = Attendance::updateOrCreate(
         [
             'location_id' => $request->location_id,
             'user_id' => $request->user_id,
         ],
         [
-            'time_in' => \Carbon\Carbon::now(),
-            'status' => \Carbon\Carbon::now()->hour > 7 ? 'Late' : 'Present',
+            'time_in' => $now,
+            'status' => $status,
+            'pickupSession' => $request->input('session_pickup'), // store as DATE
         ]
     );
 
     // Debug result
     \Log::debug('Time In Result:', $attendance->toArray());
 
-    return redirect()->back(); // <-- this just refreshes the page
+    return redirect()->back();
 }
 
 
 
 
-    public function timeOut(Request $request)
-    {
-        $attendance = Attendance::where('location_id', $request->location_id)
-            ->where('user_id', $request->user_id)
-            ->first();
 
-        if ($attendance) {
-            $attendance->update([
-                'time_out' => Carbon::now(),
-            ]);
-        }
 
-        return redirect()->back();
+
+public function timeOut(Request $request)
+{
+    $attendance = Attendance::where('location_id', $request->location_id)
+        ->where('user_id', $request->user_id)
+        ->first();
+
+    if ($attendance) {
+        $attendance->update([
+            'time_out' => \Carbon\Carbon::now('Asia/Manila'), // Manila timezone
+        ]);
     }
+
+    return redirect()->back();
+}
+
 
 
     /**

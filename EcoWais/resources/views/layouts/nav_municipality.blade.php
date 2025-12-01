@@ -4,12 +4,6 @@
     </div>
 
     <div class="nav-links">
-        <button 
-            id="nav-dashboard" 
-            class="{{ request()->routeIs('municipality.dashboard') ? 'active' : '' }}"
-            onclick="window.location.href='{{  route('municipality.dashboard') }}'">
-            Dashboard
-        </button>
 
         <button 
             id="nav-admin-barangay" 
@@ -17,14 +11,6 @@
             onclick="window.location.href='{{  route('municipality.scheduling') }}'">
             Barangay Scheduling
         </button>
-
-        <button 
-            id="nav-driver" 
-            class="{{ request()->routeIs('barangay.waste.collector.homepage') ? 'active' : '' }}"
-            onclick="window.location.href='{{ route('barangay.waste.collector.homepage') }}'">
-            Drivers
-        </button>
-
         <button 
             id="nav-admin" 
             class="{{ request()->routeIs('municipality.admin') ? 'active' : '' }}"

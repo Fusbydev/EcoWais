@@ -11,15 +11,6 @@
             onclick="window.location.href='{{ route('barangay.admin.homepage') }}'">
             Barangay Dashboard
         </button>
-
-        <button 
-            type="button" 
-            id="nav-admin-barangay" 
-            class="{{ request()->routeIs('barangay.admin.scheduling') ? 'active' : '' }}"
-            onclick="window.location.href=''">
-            Barangay Scheduling
-        </button>
-
         <div class="user-info">
             <span>{{ session('user_name') }}</span>
             <form action="{{ route('logout') }}" method="POST" style="display:inline;">
