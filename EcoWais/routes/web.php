@@ -21,7 +21,39 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\BarangayReportController;
 use App\Http\Controllers\WasteController;
+use App\Http\Controllers\IssueController;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\URL;
+
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
+
+Route::get('/email/verify', function () {
+    return view('auth.verify-email');
+})->name('verification.notice');
+
+Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
+
+    $user = User::findOrFail($id);
+
+    // Check if hash matches user's email
+    if (! hash_equals(sha1($user->email), $hash)) {
+        abort(403); // Invalid link
+    }
+
+    // Already verified?
+    if ($user->hasVerifiedEmail()) {
+        return redirect('/login')->with('message', 'Email already verified.');
+    }
+
+    // Mark email as verified
+    $user->markEmailAsVerified();
+
+    return redirect('/login')->with('verified', true);
+
+})->middleware(['signed'])->name('verification.verify');
+
+
+
 Route::get('/dashboard', [PageController::class, 'dashboard'])->name('dashboard');
 Route::get('/tracking', [PageController::class, 'tracking'])->name('tracking');
 
@@ -61,7 +93,17 @@ Route::get('/', function() {
 })->name('login.page');
 
 // Handle login POST
-Route::post('/login', [AuthController::class, 'login'])->name('login');
+// Show login page
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+
+// Handle login submission
+Route::post('/login', [AuthController::class, 'login']);
+
+
+Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
+Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+Route::get('/reset-password/{token}', [AuthController::class, 'showResetForm'])->name('password.reset');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 
 
 Route::get('/barangay-admin/homepage', function () {
@@ -185,7 +227,6 @@ Route::get('/barangay/{id}/trucks', [DriverController::class, 'getTrucks'])->nam
 Route::post('/attendance/time-in', [AttendanceController::class, 'timeIn'])->name('attendance.timein');
 Route::post('/attendance/time-out', [AttendanceController::class, 'timeOut'])->name('attendance.timeout');
 
-use Illuminate\Support\Facades\DB;
 
 Route::get('barangay-waste-collector/homepage', function () {
 
@@ -198,29 +239,53 @@ Route::get('barangay-waste-collector/homepage', function () {
         return "❌ No driver found for this user.";
     }
 
+    // Fetch pickups along with truck routes and completed points
     $scheduledPickups = DB::table('pickups')
         ->join('trucks', 'pickups.truck_id', '=', 'trucks.id')
         ->join('locations', 'pickups.location_id', '=', 'locations.id')
         ->where('trucks.driver_id', $driver->id)
         ->select(
             'pickups.*',
+            'pickups.completed_routes as completed_points',  // JSON column with completed points
             'locations.location as location_name',
-            'trucks.pickups as truck_pickups'
+            'trucks.pickups as truck_pickups'       // JSON column with planned route
         )
         ->get();
 
+    $totalCompleted = 0;
+    $totalPending = 0;
+
     foreach ($scheduledPickups as $pickup) {
-        $decoded = json_decode($pickup->truck_pickups, true);
+        $truckPoints = json_decode($pickup->truck_pickups, true) ?? [];
+        $completedPoints = json_decode($pickup->completed_points ?? '[]', true);
+
         $pickupPoints = [];
 
-        if (is_array($decoded)) {
-            foreach ($decoded as $point) {
-                if (isset($point['lat'], $point['lng'])) {
-                    $pickupPoints[] = [
-                        'lat' => $point['lat'],
-                        'lng' => $point['lng'],
-                        'timeWindow' => $point['timeWindow'] ?? null
-                    ];
+        foreach ($truckPoints as $point) {
+            $lat = $point['lat'] ?? null;
+            $lng = $point['lng'] ?? null;
+            $timeWindow = $point['timeWindow'] ?? null;
+
+            if ($lat && $lng) {
+                // Compare coordinates exactly
+                $isCompleted = collect($completedPoints)->contains(function ($c) use ($lat, $lng) {
+                    return isset($c['lat'], $c['lng'])
+                        && $c['lat'] === $lat
+                        && $c['lng'] === $lng;
+                });
+
+                $status = $isCompleted ? 'Completed' : 'Pending';
+                $pickupPoints[] = [
+                    'lat' => $lat,
+                    'lng' => $lng,
+                    'timeWindow' => $timeWindow,
+                    'status' => $status
+                ];
+
+                if ($isCompleted) {
+                    $totalCompleted++;
+                } else {
+                    $totalPending++;
                 }
             }
         }
@@ -243,9 +308,14 @@ Route::get('barangay-waste-collector/homepage', function () {
         'driver' => $driver,
         'locations' => $locations,
         'todayTotal' => $todayTotal,
-        'monthTotal' => $monthTotal
+        'monthTotal' => $monthTotal,
+        'totalCompleted' => $totalCompleted,
+        'totalPending' => $totalPending
     ]);
+
 })->name('barangay.waste.collector.homepage');
+
+
 
 
 Route::post('/waste/save', [WasteController::class, 'store'])->name('waste.store');
@@ -293,8 +363,15 @@ Route::get('/attendance', [AttendanceController::class, 'index'])->name('attenda
 
 
 Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-Route::get('/reports/generate', [ReportController::class, 'generatePdf'])->name('reports.generate.pdf');
+Route::get('/reports/generate/pdf', [ReportController::class, 'generatePdf'])->name('reports.generate.pdf');
+Route::get('/reports/generate/excel', [ReportController::class, 'generateExcel'])->name('reports.generate.excel');
 
+
+Route::get('/issues', [IssueController::class, 'getIssues'])->name('issues.get');
+Route::post('/issues', [IssueController::class, 'addIssue'])->name('issues.add');
+Route::delete('/issues/{id}', [IssueController::class, 'deleteIssue'])->name('issues.delete');
+
+Route::post('/reports/{id}/resolve', [BarangayReportController::class, 'resolve'])->name('reports.resolve');
 
 Route::post('/locations/store', [LocationController::class, 'store'])->name('locations.store');
 //municipality-admin

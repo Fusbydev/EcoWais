@@ -43,5 +43,4 @@ class DriverReportController extends Controller
         return redirect()->back()->with('error', 'Something went wrong: ' . $e->getMessage());
     }
 }
-
 }

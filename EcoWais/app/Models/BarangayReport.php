@@ -17,6 +17,7 @@ class BarangayReport extends Model
         'priority',
         'description',
         'photo_path',
+        'status',
     ];
 
     public function driver()

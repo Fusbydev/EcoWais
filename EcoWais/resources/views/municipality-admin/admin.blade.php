@@ -1,274 +1,468 @@
-@extends ('layouts.app')
+@extends('layouts.app')
 
-@section ('content')
-    <div id="admin-page" class="page">
-        <div class="container">
-            <h2 style="color: white; text-align: center; margin-bottom: 2rem;">Admin Dashboard</h2>
+@section('content')
+<div id="admin-page" class="page">
+    <div class="container-fluid px-4 py-4">
+        <!-- Header -->
+        <div class="text-center mb-5">
+            <h2 class="fw-bold text-white mb-2">Admin Dashboard</h2>
+            <p class="text-white-50">Monitor and manage waste collection operations</p>
+        </div>
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number" id="total-trucks">{{ $trucks->count() }}</div>
-                    <div>Total Trucks</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="active-drivers">{{ $drivers->count() }}</div>
-                    <div>Active Collectors</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="registered-residents">{{ $locations->count() }}</div>
-                    <div>Registered Barangays</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="system-efficiency">89%</div>
-                    <div>System Efficiency</div>
+        <!-- Success Alerts -->
+        @if(session('truckSuccess'))
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>{{ session('truckSuccess') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>{{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                <strong>Auto-generated login credentials:</strong><br>
+                Email: <strong>{{ session('generated_email') }}</strong><br>
+                Password: <strong>{{ session('generated_password') }}</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        <!-- Quick Stats Overview -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6 col-xl-3">
+                <div class="card shadow-sm border-0 h-100 border-start border-primary border-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Total Trucks</h6>
+                                <h2 class="fw-bold text-primary mb-0" id="total-trucks">{{ $trucks->count() }}</h2>
+                            </div>
+                            <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-truck text-primary fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-
-<div class="card">
-    <div class="container mt-5">
-
-    <!-- DASHBOARD CARDS -->
-    <div class="row g-4 mb-4">
-        <!-- Waste Collected Today -->
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex align-items-center">
-                    <i class="bi bi-recycle text-success fs-1 me-3"></i>
-                    <div>
-                        <h6 class="card-subtitle mb-2 text-muted">Waste Collected Today</h6>
-                        <h2 class="fw-bold text-success mb-1">{{ $todayTotal ?? 0 }} kg</h2>
-                        <small class="text-muted">As of {{ now()->format('F d, Y') }}</small>
+            <div class="col-md-6 col-xl-3">
+                <div class="card shadow-sm border-0 h-100 border-start border-success border-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Active Collectors</h6>
+                                <h2 class="fw-bold text-success mb-0" id="active-drivers">{{ $drivers->count() }}</h2>
+                            </div>
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-people-fill text-success fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-xl-3">
+                <div class="card shadow-sm border-0 h-100 border-start border-info border-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">Barangays</h6>
+                                <h2 class="fw-bold text-info mb-0" id="registered-residents">{{ $locations->count() }}</h2>
+                            </div>
+                            <div class="bg-info bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-geo-alt-fill text-info fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-xl-3">
+                <div class="card shadow-sm border-0 h-100 border-start border-warning border-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">System Efficiency</h6>
+                                <h2 class="fw-bold text-warning mb-0" id="system-efficiency">89%</h2>
+                            </div>
+                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-speedometer2 text-warning fs-1"></i>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Waste Collected This Month -->
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex align-items-center">
-                    <i class="bi bi-calendar-month text-primary fs-1 me-3"></i>
-                    <div>
-                        <h6 class="card-subtitle mb-2 text-muted">Waste Collected This Month</h6>
-                        <h2 class="fw-bold text-primary mb-1">{{ $monthTotal ?? 0 }} kg</h2>
-                        <small class="text-muted">Month of {{ now()->format('F Y') }}</small>
+        <!-- Waste Collection Analytics -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white border-bottom py-3">
+                <h5 class="mb-0"><i class="bi bi-bar-chart-line-fill me-2"></i>Waste Collection Analytics</h5>
+            </div>
+            <div class="card-body">
+                <!-- Summary Cards -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-4">
+                        <div class="card border-0 bg-light h-100">
+                            <div class="card-body d-flex align-items-center">
+                                <div class="bg-success bg-opacity-25 p-3 rounded me-3">
+                                    <i class="bi bi-recycle text-success fs-2"></i>
+                                </div>
+                                <div>
+                                    <h6 class="text-muted mb-1 small">Today's Collection</h6>
+                                    <h3 class="fw-bold text-success mb-0">{{ $todayTotal ?? 0 }} kg</h3>
+                                    <small class="text-muted">{{ now()->format('F d, Y') }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 bg-light h-100">
+                            <div class="card-body d-flex align-items-center">
+                                <div class="bg-primary bg-opacity-25 p-3 rounded me-3">
+                                    <i class="bi bi-calendar-month text-primary fs-2"></i>
+                                </div>
+                                <div>
+                                    <h6 class="text-muted mb-1 small">This Month</h6>
+                                    <h3 class="fw-bold text-primary mb-0">{{ $monthTotal ?? 0 }} kg</h3>
+                                    <small class="text-muted">{{ now()->format('F Y') }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 bg-light h-100">
+                            <div class="card-body d-flex align-items-center">
+                                <div class="bg-warning bg-opacity-25 p-3 rounded me-3">
+                                    <i class="bi bi-clipboard-data text-warning fs-2"></i>
+                                </div>
+                                <div>
+                                    <h6 class="text-muted mb-1 small">Total Collections</h6>
+                                    <h3 class="fw-bold text-warning mb-0">{{ $totalCollections ?? 0 }}</h3>
+                                    <small class="text-muted">All-time entries</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        <div class="card border-0 bg-light h-100">
+                            <div class="card-header bg-primary text-white border-0">
+                                <h6 class="mb-0"><i class="bi bi-bar-chart-fill me-2"></i>Daily Waste Collection (kg)</h6>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="dailyWasteChart" style="min-height: 300px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="card border-0 bg-light h-100">
+                            <div class="card-header bg-success text-white border-0">
+                                <h6 class="mb-0"><i class="bi bi-pie-chart-fill me-2"></i>Waste by Type</h6>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="wasteTypeChart" style="min-height: 300px;"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Total Collection Entries -->
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex align-items-center">
-                    <i class="bi bi-clipboard-data text-warning fs-1 me-3"></i>
-                    <div>
-                        <h6 class="card-subtitle mb-2 text-muted">Total Collections</h6>
-                        <h2 class="fw-bold text-warning mb-1">{{ $totalCollections ?? 0 }}</h2>
-                        <small class="text-muted">All-time entries</small>
+        <!-- Fleet Management -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white border-bottom py-3">
+                <h5 class="mb-0"><i class="bi bi-truck-front-fill me-2"></i>Fleet Management</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <input type="text" id="fleet-search" class="form-control" placeholder="🔍 Search trucks or drivers...">
                     </div>
+                    <div class="col-md-4">
+                        <select id="fleet-status-filter" class="form-select">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="button" class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#addTruckModal">
+                            <i class="bi bi-plus-circle-fill me-2"></i>Add New Truck
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="fw-semibold">Truck ID</th>
+                                <th class="fw-semibold">Driver</th>
+                                <th class="fw-semibold">Location</th>
+                                <th class="fw-semibold">Status</th>
+                                <th class="fw-semibold">Fuel Level</th>
+                                <th class="fw-semibold text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fleet-table">
+                            @foreach($trucks as $truck)
+                                <tr>
+                                    <td class="fw-medium">{{ $truck->truck_id }}</td>
+                                    <td>{{ $truck->driver->user->name ?? 'N/A' }}</td>
+                                    <td class="text-muted">{{ $truck->initial_location }}</td>
+                                    <td>
+                                        @if(strtolower($truck->status) === 'active')
+                                            <span class="badge bg-success">Active</span>
+                                        @elseif(strtolower($truck->status) === 'inactive')
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        @elseif(strtolower($truck->status) === 'maintenance')
+                                            <span class="badge bg-warning">Maintenance</span>
+                                        @else
+                                            <span class="badge bg-secondary">{{ ucfirst($truck->status) }}</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ $truck->initial_fuel }}%" aria-valuenow="{{ $truck->initial_fuel }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                            </div>
+                                            <span class="small">{{ $truck->initial_fuel }}%</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-primary me-1">
+                                            <i class="bi bi-pencil-fill">Edit</i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning" 
+        data-bs-toggle="modal" 
+        data-bs-target="#viewTruckModal-{{ $truck->truck_id }}">
+    <i class="bi bi-eye-fill"></i> View
+</button>
+
+
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+
+
                 </div>
             </div>
         </div>
+
+        <!-- Pending Reports -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white border-bottom py-3">
+                <h5 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Pending Reports</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <select id="report-filter" class="form-select">
+            <option value="">All Reports</option>
+            <option value="new">New</option>
+            <option value="in-review">In Review</option>
+            <option value="resolved">Resolved</option>
+        </select>
     </div>
-
-    <!-- GRAPHS SECTION -->
-    <div class="row g-4">
-        <!-- Daily Waste Chart -->
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-primary text-white d-flex align-items-center">
-                    <i class="bi bi-bar-chart-fill fs-5 me-2"></i>
-                    <span>Daily Waste Collection (kg)</span>
-                </div>
-                <div class="card-body">
-                    <canvas id="dailyWasteChart" style="min-height: 300px;"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Waste by Type -->
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-success text-white d-flex align-items-center">
-                    <i class="bi bi-pie-chart-fill fs-5 me-2"></i>
-                    <span>Waste Collected by Type</span>
-                </div>
-                <div class="card-body">
-                    <canvas id="wasteTypeChart" style="min-height: 300px;"></canvas>
-                </div>
-            </div>
-        </div>
+    <div class="col-md-6 d-flex justify-content-end">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#issueManagementModal">
+            Manage Issues
+        </button>
     </div>
-
 </div>
 
-</div>
 
-            <div class="card">
-                <h3>Fleet Management</h3>
+@if(session('success1'))
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>{{ session('success1') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="fw-semibold">Time</th>
+                                <th class="fw-semibold">Type</th>
+                                <th class="fw-semibold">Location</th>
+                                <th class="fw-semibold">Priority</th>
+                                <th class="fw-semibold">Status</th>
+                                <th class="fw-semibold text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-reports">
+                            @foreach($reports as $report)
+                                <tr>
+                                    <td class="text-muted">{{ $report->created_at ? $report->created_at->format('M d, Y h:i A') : '' }}</td>
+                                    <td>
+                                        @php
+                                            if ($report->issue_type === 'other') {
+                                                $issueDisplay = $report->other_issue ?? '';
+                                            } elseif ($report->issue_type === 'driver-absent') {
+                                                $driverName = $report->driver->user->name ?? 'Unknown';
+                                                $issueDisplay = "Absent - " . $driverName;
+                                            } else {
+                                                $issueDisplay = $report->issue_type ?? '';
+                                            }
+                                        @endphp
+                                        {{ $issueDisplay }}
+                                    </td>
+                                    <td>{{ $report->location ?? '' }}</td>
+                                    <td>
+                                        @if(strtolower($report->priority ?? '') === 'high')
+                                            <span class="badge bg-danger">High</span>
+                                        @elseif(strtolower($report->priority ?? '') === 'medium')
+                                            <span class="badge bg-warning">Medium</span>
+                                        @else
+                                            <span class="badge bg-success">Low</span>
+                                        @endif
+                                    </td>
+                                    <td>
+    @php
+        $status = $report->Status ?? 'Pending';
+        $badgeClass = match($status) {
+            'Resolved' => 'bg-success',
+            'Pending'  => 'bg-warning text-dark',
+            default    => 'bg-info',
+        };
+    @endphp
 
-                @if(session('truckSuccess'))
-                    <div class="alert alert-success">
-                        {{ session('truckSuccess') }}
-                    </div>
-                @endif
+    <span class="badge {{ $badgeClass }}">
+        {{ $status }}
+    </span>
+</td>
 
-                <div class="search-filter">
-                    <input type="text" id="fleet-search" placeholder="Search trucks or drivers...">
-                    <select id="fleet-status-filter">
-                        <option value="">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="maintenance">Maintenance</option>
-                    </select>
-                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTruckModal">
-                        Add New Truck
-                    </button>
+                                    <td class="text-center">
+
+                            <form action="{{ route('reports.resolve', $report->id) }}" method="POST" class="d-inline">
+    @csrf
+    <button 
+        type="submit"
+        class="btn btn-sm btn-outline-success me-1"
+        @if($report->Status === 'Resolved') disabled @endif
+    >
+        <i class="bi bi-check-circle-fill"></i> Resolve
+    </button>
+</form>
+
+
+                            <button class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye-fill"></i> View
+                            </button>
+
+                        </td>
+
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
-                <table class="table">
+            </div>
+        </div>
+<!-- Issue Management Modal -->
+<div class="modal fade" id="issueManagementModal" tabindex="-1" aria-labelledby="issueManagementLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="issueManagementLabel">Issue Management</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Add New Issue Button -->
+                <div class="mb-3 text-end">
+                    <button class="btn btn-success" id="addIssueBtn">Add New Issue</button>
+                </div>
+
+                <!-- Issues Table -->
+                <table class="table table-bordered table-striped">
                     <thead>
                         <tr>
-                            <th>Truck ID</th>
-                            <th>Driver</th>
-                            <th>Current Location</th>
-                            <th>Status</th>
-                            <th>Fuel Level</th>
+                            <th>#</th>
+                            <th>Issue Name</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="fleet-table">
-                        @foreach($trucks as $truck)
-                            <tr>
-                                <td>{{ $truck->truck_id }}</td>
-                                <td>{{ $truck->driver->user->name ?? 'N/A' }}</td>
-                                <td>{{ $truck->initial_location }}</td>
-                                <td>{{ ucfirst($truck->status) }}</td>
-                                <td>{{ $truck->initial_fuel }}%</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">Edit</button>
-                                    <button class="btn btn-sm btn-warning">View</button>
-                                </td>
-                            </tr>
-                        @endforeach
+                    <tbody id="issuesTableBody">
+                        <!-- Example row: This should be populated dynamically -->
+                        <!--
+                        <tr>
+                            <td>1</td>
+                            <td>Missed Collection</td>
+                            <td>
+                                <button class="btn btn-danger btn-sm deleteIssueBtn">Delete</button>
+                            </td>
+                        </tr>
+                        -->
                     </tbody>
                 </table>
             </div>
-
-
-            <div class="card">
-                <h3>Pending Reports</h3>
-                <div class="search-filter">
-                    <select id="report-filter">
-                        <option value="">All Reports</option>
-                        <option value="new">New</option>
-                        <option value="in-review">In Review</option>
-                        <option value="resolved">Resolved</option>
-                    </select>
-                    <select id="report-type-filter">
-                        <option value="">All Types</option>
-                        <option value="missed">Missed Collection</option>
-                        <option value="spillage">Spillage</option>
-                        <option value="vehicle">Vehicle Issues</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <!--<th>Reporter</th>-->
-                            <th>Type</th>
-                            <th>Location</th>
-                            <th>Priority</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="admin-reports">
-    @foreach($reports as $report)
-        <tr>
-            <td>{{ $report->created_at ? $report->created_at->format('M d, Y h:i A') : '' }}</td>
-            <!--<td>{{ $report->reporter->name ?? 'N/A' }}</td>-->
-            <td>
-                @php
-                    if ($report->issue_type === 'other') {
-                        $issueDisplay = $report->other_issue ?? '';
-                    } elseif ($report->issue_type === 'driver-absent') {
-                        $driverName = $report->driver->user->name ?? 'Unknown';
-                        $issueDisplay = "Absent - " . $driverName;
-                    } else {
-                        $issueDisplay = $report->issue_type ?? '';
-                    }
-                @endphp
-                {{ $issueDisplay }}
-            </td>
-            <td>{{ $report->location ?? '' }}</td>
-            <td>{{ ucfirst($report->priority ?? '') }}</td>
-            <td><span class="badge bg-info">{{ $report->status ?? 'Pending' }}</span></td>
-            <td>
-                <!-- reesolved and view button -->
-                <button class="btn btn-sm btn-primary">Resolve</button>
-                <button class="btn btn-sm btn-warning">View</button>
-            </td>
-        </tr>
-    @endforeach
-</tbody>
-
-
-                </table>
-            </div>
-            <!-- Success alert -->
-    @if(session('success'))
-        <div class="alert alert-success">
-            {{ session('success') }}
         </div>
-        <div class="alert alert-info">
-            Auto-generated login credentials:<br>
-            Email: <strong>{{ session('generated_email') }}</strong><br>
-            Password: <strong>{{ session('generated_password') }}</strong>
-        </div>
-    @endif                            
-            <div class="card">
-                <h3>System Settings</h3>
-                <div class="grid-auto">
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#manageLocationsModal">
-                        Manage Locations
-                    </button>
-
-
-                    <a href="{{ route('reports.generate.pdf') }}" class="btn btn-primary">
-                        Generate PDF Report
-                    </a>
-                    <!--<button class="btn" onclick="backupData()">Backup Data</button>-->
-                    <a href="{{ route('user-management') }}" class="btn btn-primary">User Management</a></a>
-                </div>
+    </div>
+</div>
+        <!-- System Settings -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom py-3">
+                <h5 class="mb-0"><i class="bi bi-gear-fill me-2"></i>System Settings</h5>
             </div>
-
-
-            <div class="modal fade" id="addTruckModal" tabindex="-1" aria-labelledby="addTruckModalLabel" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="addTruckModalLabel">➕ Add New Truck</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary w-100 py-3" data-bs-toggle="modal" data-bs-target="#manageLocationsModal">
+                            <i class="bi bi-geo-alt-fill fs-4 d-block mb-2"></i>
+                            <span class="d-block">Manage Locations</span>
+                        </button>
                     </div>
-                    <form action="{{  route('trucks.store') }}" method="POST">
-                        @csrf
-                        <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="truck_id" class="form-label">Truck ID</label>
-                            <input type="text" class="form-control" id="truck_id" name="truck_id" required>
-                        </div>
-                        <div class="mb-3">
-                            <p class="text-muted">Note: If the driver is already assigned to a truck, they will be disabled.</p>
-                            <label for="driver_id" class="form-label">Driver Name</label>
-                            <select name="driver_id" class="form-select">
+    <div class="col-md-4">
+        <button id="downloadReports" class="btn btn-outline-success w-100 py-3">
+            <i class="bi bi-file-earmark-text-fill fs-4 d-block mb-2"></i>
+            <span class="d-block">Download PDF & Excel</span>
+        </button>
+    </div>
+
+                    <div class="col-md-4">
+                        <a href="{{ route('user-management') }}" class="btn btn-outline-info w-100 py-3">
+                            <i class="bi bi-people-fill fs-4 d-block mb-2"></i>
+                            <span class="d-block">User Management</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Truck Modal -->
+<div class="modal fade" id="addTruckModal" tabindex="-1" aria-labelledby="addTruckModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="addTruckModalLabel">
+                    <i class="bi bi-plus-circle-fill me-2"></i>Add New Truck
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('trucks.store') }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="truck_id" class="form-label fw-semibold">Truck ID <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="truck_id" name="truck_id" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="driver_id" class="form-label fw-semibold">Driver Name <span class="text-danger">*</span></label>
+                        <select name="driver_id" class="form-select" required>
                             <option value="">Select Driver</option>
                             @foreach($drivers as $driver)
                                 @php
-                                    $assignedTruck = $driver->truck; // Truck model if assigned
+                                    $assignedTruck = $driver->truck;
                                     $isDeactivated = $driver->user->status === 'deactivated';
                                 @endphp
                                 <option value="{{ $driver->id }}" {{ $assignedTruck || $isDeactivated ? 'disabled' : '' }}>
@@ -281,163 +475,377 @@
                                 </option>
                             @endforeach
                         </select>
+                        <small class="text-muted">Drivers already assigned or deactivated are disabled</small>
+                    </div>
 
-                        </div>
-                        <div class="mb-3">
-                            <label for="initial_location" class="form-label">Initial Location</label>
-                            <select class="form-control" id="initial_location" name="initial_location" required>
-                                <option value="">-- Select Location --</option>
-                                @foreach($locations as $location)
-                                    <option value="{{ $location->location }}">{{ $location->location }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                    <div class="mb-3">
+                        <label for="initial_location" class="form-label fw-semibold">Initial Location <span class="text-danger">*</span></label>
+                        <select class="form-select" id="initial_location" name="initial_location" required>
+                            <option value="">-- Select Location --</option>
+                            @foreach($locations as $location)
+                                <option value="{{ $location->location }}">{{ $location->location }}</option>
+                            @endforeach
+                        </select>
+                    </div>
 
-                        <div class="mb-3">
-                            <label for="initial_fuel" class="form-label">Initial Fuel (%)</label>
-                            <input type="number" class="form-control" id="initial_fuel" name="initial_fuel" min="0" max="100" value="100" required>
-                        </div>
-                        </div>
-                        <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-success">Add Truck</button>
-                        </div>
-                    </form>
+                    <div class="mb-3">
+                        <label for="initial_fuel" class="form-label fw-semibold">Initial Fuel (%) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="initial_fuel" name="initial_fuel" min="0" max="100" value="100" required>
+                        <div class="form-text">Enter fuel level from 0 to 100</div>
                     </div>
                 </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-1"></i>Close
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-plus-circle-fill me-1"></i>Add Truck
+                    </button>
                 </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <!-- Location management modal -->
+<!-- Manage Locations Modal -->
 <div class="modal fade" id="manageLocationsModal" tabindex="-1" aria-labelledby="manageLocationsLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
-
-            <div class="modal-header">
-                <h5 class="modal-title" id="manageLocationsLabel">Add Barangay</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="manageLocationsLabel">
+                    <i class="bi bi-geo-alt-fill me-2"></i>Add Barangay
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-
             <form method="POST" action="{{ route('locations.store') }}">
-                @csrf <!-- <-- CSRF token added -->
+                @csrf
                 <div class="modal-body">
-
-                    <p class="text-muted">Pin the location (barangay) on the map</p>
+                    <div class="alert alert-info border-0 mb-3">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        <strong>Instructions:</strong> Click on the map to pin the barangay location. The coordinates will be automatically filled.
+                    </div>
 
                     <!-- Map Area -->
                     <div class="mb-3">
-                        <label class="form-label">Pin Location on Map</label>
-                        <div id="map" style="height: 350px; width: 100%; border-radius: 8px;"></div>
+                        <label class="form-label fw-semibold">Pin Location on Map</label>
+                        <div id="map" style="height: 350px; width: 100%; border-radius: 8px; border: 2px solid #dee2e6;"></div>
                     </div>
 
                     <!-- Barangay Name -->
                     <div class="mb-3">
-                        <label for="location" class="form-label">Barangay Name</label>
+                        <label for="location" class="form-label fw-semibold">Barangay Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="location" name="location" required>
                     </div>
 
                     <!-- Admin Dropdown -->
                     <div class="mb-3">
-                        <label for="adminId" class="form-label">Assigned Admin</label>
+                        <label for="adminId" class="form-label fw-semibold">Assigned Admin <span class="text-danger">*</span></label>
                         <select class="form-select" id="adminId" name="adminId" required>
                             <option value="" selected>-- Select Admin --</option>
                             @foreach($users as $user)
-                            @if($user->role === 'barangay_admin')
-                                @php
-                                    $isAssigned = \App\Models\Location::where('adminId', $user->id)->exists();
-                                @endphp
-
-                                @if(!$isAssigned)
-                                    <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                @if($user->role === 'barangay_admin')
+                                    @php
+                                        $isAssigned = \App\Models\Location::where('adminId', $user->id)->exists();
+                                    @endphp
+                                    @if(!$isAssigned)
+                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                    @endif
                                 @endif
-                            @endif
-                        @endforeach
-
+                            @endforeach
                         </select>
                     </div>
 
-                    <!-- Latitude -->
-                    <div class="mb-3">
-                        <label for="latitude" class="form-label">Latitude</label>
-                        <input type="text" class="form-control" id="latitude" name="latitude" readonly required>
+                    <!-- Coordinates Row -->
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="latitude" class="form-label fw-semibold">Latitude <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="latitude" name="latitude" readonly required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="longitude" class="form-label fw-semibold">Longitude <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="longitude" name="longitude" readonly required>
+                        </div>
                     </div>
-
-                    <!-- Longitude -->
-                    <div class="mb-3">
-                        <label for="longitude" class="form-label">Longitude</label>
-                        <input type="text" class="form-control" id="longitude" name="longitude" readonly required>
-                    </div>
-
                 </div>
-
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-success">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-1"></i>Close
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save-fill me-1"></i>Save Location
+                    </button>
                 </div>
             </form>
-
         </div>
     </div>
 </div>
 
 
+@foreach($trucks as $truck)
+<div class="modal fade" id="viewTruckModal-{{ $truck->truck_id }}" tabindex="-1" aria-labelledby="viewTruckLabel-{{ $truck->truck_id }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-sm">
+            
+            {{-- Header --}}
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="viewTruckLabel-{{ $truck->truck_id }}">
+                    <i class="bi bi-truck-front-fill me-2"></i>Truck Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            {{-- Body --}}
+            <div class="modal-body">
+                {{-- Truck Info --}}
+                <div class="mb-3">
+                    <p class="mb-1"><strong>Truck ID:</strong> <span class="text-primary">{{ $truck->truck_id }}</span></p>
+                    <p class="mb-0"><strong>Driver:</strong> {{ $truck->driver->user->name ?? 'N/A' }}</p>
+                    <p class="mb-0"><strong>Status:</strong> 
+                        @if(strtolower($truck->status) === 'active')
+                            <span class="badge bg-success">Active</span>
+                        @elseif(strtolower($truck->status) === 'inactive')
+                            <span class="badge bg-secondary">Inactive</span>
+                        @elseif(strtolower($truck->status) === 'maintenance')
+                            <span class="badge bg-warning text-dark">Maintenance</span>
+                        @else
+                            <span class="badge bg-secondary">{{ ucfirst($truck->status) }}</span>
+                        @endif
+                    </p>
+                </div>
+
+                {{-- Pickups --}}
+                @if($truck->pickups && count($truck->pickups) > 0)
+                    <p class="mb-2"><strong>Pickup Locations:</strong></p>
+                    <ul class="list-group list-group-flush">
+                        @foreach($truck->pickups as $index => $pickup)
+                            <li class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-start pickup-item"
+                                data-lat="{{ $pickup['lat'] }}"
+                                data-lng="{{ $pickup['lng'] }}">
+                                
+                                <div class="mb-2 mb-md-0">
+                                    <i class="bi bi-geo-alt-fill text-danger me-1"></i>
+                                    <span class="pickup-address">Loading address...</span>
+                                </div>
+
+                                <div>
+                                    <i class="bi bi-clock-fill text-secondary me-1"></i>
+                                    <small>{{ $pickup['timeWindow']['start'] }} - {{ $pickup['timeWindow']['end'] }}</small>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="text-muted mb-0">No pickups found for this truck.</p>
+                @endif
+            </div>
+
+            {{-- Footer --}}
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Close
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+@endforeach
 
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
+<script>
+
+document.addEventListener('DOMContentLoaded', () => {
+    const modals = document.querySelectorAll('.modal');
+
+    modals.forEach(modal => {
+        modal.addEventListener('shown.bs.modal', async () => {
+            const pickupItems = modal.querySelectorAll('.pickup-item');
+
+            pickupItems.forEach(async item => {
+                const lat = item.dataset.lat;
+                const lng = item.dataset.lng;
+                const addressSpan = item.querySelector('.pickup-address'); // update only this span
+
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+                    const data = await res.json();
+                    const address = data.display_name || `${lat}, ${lng}`;
+                    addressSpan.textContent = address;
+                } catch (err) {
+                    addressSpan.textContent = `${lat}, ${lng}`;
+                }
+            });
+        });
+    });
+});
+
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    const issuesTableBody = document.getElementById('issuesTableBody');
+    const addIssueBtn = document.getElementById('addIssueBtn');
+
+    // --- Fetch and render issues from DB ---
+    function loadIssues() {
+        fetch("{{ route('issues.get') }}")
+            .then(res => res.json())
+            .then(data => {
+                issuesTableBody.innerHTML = '';
+                data.forEach((issue, index) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${issue.issue_name}</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm deleteIssueBtn" data-id="${issue.id}">Delete</button>
+                        </td>
+                    `;
+                    issuesTableBody.appendChild(row);
+                });
+                attachDeleteEvents();
+            });
+    }
+
+    // --- Delete issue ---
+    function attachDeleteEvents() {
+        document.querySelectorAll('.deleteIssueBtn').forEach(btn => {
+            btn.onclick = function() {
+                if(confirm('Are you sure you want to delete this issue?')) {
+                    const id = this.dataset.id;
+                    fetch(`/issues/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }
+                    }).then(() => loadIssues());
+                }
+            }
+        });
+    }
+
+    // --- Add new issue row inline ---
+    addIssueBtn.onclick = function() {
+        // prevent multiple input rows
+        if(document.querySelector('#issuesTableBody input')) return;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>#</td>
+            <td><input type="text" class="form-control form-control-sm" placeholder="Enter issue name"></td>
+            <td>
+                <button class="btn btn-success btn-sm" id="saveNewIssue">Save</button>
+                <button class="btn btn-secondary btn-sm" id="cancelNewIssue">Cancel</button>
+            </td>
+        `;
+        issuesTableBody.prepend(row);
+
+        const saveBtn = row.querySelector('#saveNewIssue');
+        const cancelBtn = row.querySelector('#cancelNewIssue');
+        const input = row.querySelector('input');
+
+        saveBtn.onclick = function() {
+            const value = input.value.trim();
+            if(!value) { alert('Issue name cannot be empty!'); return; }
+
+            fetch("{{ route('issues.add') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({issue_name: value})
+            }).then(res => res.json())
+              .then(() => loadIssues());
+        };
+
+        cancelBtn.onclick = function() {
+            row.remove();
+        };
+    }
+
+    // --- Load issues when modal opens ---
+    const modal = document.getElementById('issueManagementModal');
+    modal.addEventListener('show.bs.modal', loadIssues);
+});
+
+    document.getElementById('downloadReports').addEventListener('click', function() {
+    // Trigger PDF download
+    const pdfLink = document.createElement('a');
+    pdfLink.href = "{{ route('reports.generate.pdf') }}";
+    pdfLink.download = '';
+    pdfLink.click();
+
+    // Slight delay to ensure second download triggers
+    setTimeout(() => {
+        const excelLink = document.createElement('a');
+        excelLink.href = "{{ route('reports.generate.excel') }}";
+        excelLink.download = '';
+        excelLink.click();
+    }, 500);
+});
+// Daily Waste Chart
 const dailyCtx = document.getElementById('dailyWasteChart').getContext('2d');
-    new Chart(dailyCtx, {
-        type: 'bar',
-        data: {
-            labels: {!! json_encode($dailyLabels) !!},
-            datasets: [{
-                label: 'Waste Collected (kg)',
-                data: {!! json_encode($dailyData) !!},
-                backgroundColor: '#4dabf7'
-            }]
+new Chart(dailyCtx, {
+    type: 'bar',
+    data: {
+        labels: {!! json_encode($dailyLabels) !!},
+        datasets: [{
+            label: 'Waste Collected (kg)',
+            data: {!! json_encode($dailyData) !!},
+            backgroundColor: '#4dabf7',
+            borderRadius: 6
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: { display: false },
+            tooltip: { mode: 'index', intersect: false }
         },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { display: false },
-                tooltip: { mode: 'index', intersect: false }
+        scales: {
+            x: { 
+                title: { display: true, text: 'Date' },
+                grid: { display: false }
             },
-            scales: {
-                x: { title: { display: true, text: 'Date' } },
-                y: { title: { display: true, text: 'Kg' }, beginAtZero: true }
+            y: { 
+                title: { display: true, text: 'Kg' },
+                beginAtZero: true
             }
         }
-    });
+    }
+});
 
-    // Waste by Type Chart
-    const typeCtx = document.getElementById('wasteTypeChart').getContext('2d');
-    new Chart(typeCtx, {
-        type: 'doughnut',
-        data: {
-            labels: {!! json_encode(array_keys($typeData)) !!},
-            datasets: [{
-                label: 'Waste by Type (kg)',
-                data: {!! json_encode(array_values($typeData)) !!},
-                backgroundColor: ['#f06595','#51cf66','#fcc419','#339af0']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'bottom' }
-            }
+// Waste by Type Chart
+const typeCtx = document.getElementById('wasteTypeChart').getContext('2d');
+new Chart(typeCtx, {
+    type: 'doughnut',
+    data: {
+        labels: {!! json_encode(array_keys($typeData)) !!},
+        datasets: [{
+            label: 'Waste by Type (kg)',
+            data: {!! json_encode(array_values($typeData)) !!},
+            backgroundColor: ['#f06595', '#51cf66', '#fcc419', '#339af0']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: { position: 'bottom' }
         }
-    });
+    }
+});
 
- document.addEventListener('DOMContentLoaded', function () {
+// Map Initialization
+document.addEventListener('DOMContentLoaded', function () {
     let map;
     let marker;
 
     const modalEl = document.getElementById('manageLocationsModal');
 
     modalEl.addEventListener('shown.bs.modal', function () {
-        // Initialize map only once
         if (!map) {
             map = L.map('map').setView([13.411, 121.180], 13);
 
@@ -446,16 +854,13 @@ const dailyCtx = document.getElementById('dailyWasteChart').getContext('2d');
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
 
-            // Click to place marker
             map.on('click', function(e) {
                 if (marker) map.removeLayer(marker);
                 marker = L.marker(e.latlng, { draggable: true }).addTo(map);
 
-                // Update lat/lng inputs
                 document.getElementById('latitude').value = e.latlng.lat.toFixed(6);
                 document.getElementById('longitude').value = e.latlng.lng.toFixed(6);
 
-                // Reverse geocode to fill Barangay name
                 fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
                     .then(response => response.json())
                     .then(data => {
@@ -468,13 +873,11 @@ const dailyCtx = document.getElementById('dailyWasteChart').getContext('2d');
                     })
                     .catch(err => console.warn('Reverse geocoding failed', err));
 
-                // Update lat/lng if marker is dragged
                 marker.on('dragend', function(ev) {
                     const p = ev.target.getLatLng();
                     document.getElementById('latitude').value = p.lat.toFixed(6);
                     document.getElementById('longitude').value = p.lng.toFixed(6);
 
-                    // Update Barangay name on drag
                     fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${p.lat}&lon=${p.lng}`)
                         .then(response => response.json())
                         .then(data => {
@@ -490,13 +893,13 @@ const dailyCtx = document.getElementById('dailyWasteChart').getContext('2d');
             });
         }
 
-        // Fix map sizing after modal opens
         setTimeout(function() {
             map.invalidateSize();
         }, 200);
     });
 });
 
+// Fleet Search and Filter
 document.addEventListener('DOMContentLoaded', function () {
     const searchInput = document.getElementById('fleet-search');
     const statusFilter = document.getElementById('fleet-status-filter');
@@ -527,5 +930,4 @@ document.addEventListener('DOMContentLoaded', function () {
     statusFilter.addEventListener('change', filterFleet);
 });
 </script>
-
-@endsection     
+@endsection

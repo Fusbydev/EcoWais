@@ -36,24 +36,27 @@ public function store(Request $request)
 
         // Create user
         $user = User::create([
-    'name'         => $validated['name'],
-    'email'        => $validated['email'],
-    'password'     => Hash::make($validated['password']),
-    'role'         => $validated['role'],
-    'status'       => $validated['status'],
-    'phone_number' => $validated['phone'] ?? null,
-]);
+            'name'         => $validated['name'],
+            'email'        => $validated['email'],
+            'password'     => Hash::make($validated['password']),
+            'role'         => $validated['role'],
+            'status'       => $validated['status'],
+            'phone_number' => $validated['phone'] ?? null,
+        ]);
+
+        // Send email verification
+        event(new \Illuminate\Auth\Events\Registered($user));
 
         // Only create driver if role is barangay_waste_collector
         if ($validated['role'] === 'barangay_waste_collector') {
             \App\Models\Driver::create([
-                'user_id' => $user->id,
+                'user_id'      => $user->id,
                 'phone_number' => $validated['phone'] ?? null,
             ]);
         }
 
         return redirect()->route('user-management')
-            ->with('success', 'User has been successfully created.');
+            ->with('success', 'User has been successfully created. A verification email has been sent.');
 
     } catch (\Exception $e) {
         dd($e->getMessage());
@@ -62,27 +65,28 @@ public function store(Request $request)
 
 
 
-
-
     // Update user
     public function update(Request $request, User $user)
-    {
-        $request->validate([
-            'name'   => 'required|string|max:255',
-            'email'  => 'required|email|unique:users,email,' . $user->id,
-            'role'   => 'required|string',
-            'status' => 'required|in:activated,deactivated',
-        ]);
+{
+    $request->validate([
+        'name'   => 'required|string|max:255',
+        'email'  => 'required|email|unique:users,email,' . $user->id,
+        // remove role validation
+        'phone'  => 'nullable|string|max:20',
+        'status' => 'required|in:activated,deactivated',
+    ]);
 
-        $user->update([
-            'name'   => $request->name,
-            'email'  => $request->email,
-            'role'   => $request->role,
-            'status' => $request->status,
-        ]);
+    $user->update([
+        'name'   => $request->name,
+        'email'  => $request->email,
+        // do NOT update role
+        'phone_number' => $request->phone,   // <-- FIXED
+        'status' => $request->status,
+    ]);
 
-        return redirect()->route('user-management')->with('success', 'User updated successfully.');
-    }
+    return redirect()->route('user-management')->with('success', 'User updated successfully.');
+}
+
 
     // Activate user
     public function activate(User $user)

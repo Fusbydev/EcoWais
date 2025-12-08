@@ -82,6 +82,15 @@ class BarangayReportController extends Controller
         }
     }
 
+public function resolve($id)
+{
+    $report = BarangayReport::findOrFail($id);
+    if($report->Status !== 'Resolved') {
+        $report->Status = 'Resolved';
+        $report->save();
+    }
+    return redirect()->back()->with('success1', 'Report marked as resolved.');
+}
 
 
 
