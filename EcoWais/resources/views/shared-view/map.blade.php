@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('content')
+
+<p>{{ session('user_id') }}</p>
 <div id="tracking-page" class="page">
     <div class="container-fluid px-4 py-4">
         <!-- Header -->
@@ -258,40 +260,43 @@
             </div>
         </div>
 
-        <!-- Route Planning & Optimization -->
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-white border-bottom py-3">
-                <h5 class="mb-0">
-                    <i class="bi bi-diagram-3-fill me-2"></i>Route Planning & Optimization
-                </h5>
+        @if(session('user_role') === 'municipality_administrator')
+<!-- Route Planning & Optimization -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white border-bottom py-3">
+        <h5 class="mb-0">
+            <i class="bi bi-diagram-3-fill me-2"></i>Route Planning & Optimization
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Select Truck for Route Planning</label>
+                <select class="form-select" id="truck" name="truck" required>
+                    <option value="">— Select Truck —</option>
+                    @foreach($trucks as $truck)
+                        <option value="{{ $truck->id }}">{{ $truck->truck_id }}</option>
+                    @endforeach
+                </select>
             </div>
-            <div class="card-body">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Select Truck for Route Planning</label>
-                        <select class="form-select" id="truck" name="truck" required>
-                            <option value="">— Select Truck —</option>
-                            @foreach($trucks as $truck)
-                                <option value="{{ $truck->id }}">{{ $truck->truck_id }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-success flex-fill" onclick="optimizeRoute()">
-                                <i class="bi bi-arrow-clockwise me-1"></i>Optimize Route
-                            </button>
-                            <button class="btn btn-info flex-fill" onclick="showRouteDetails()">
-                                <i class="bi bi-list-check me-1"></i>Route Details
-                            </button>
-                            <button class="btn btn-warning flex-fill" data-bs-toggle="modal" data-bs-target="#assignRouteModal">
-                                <i class="bi bi-geo-alt-fill me-1"></i>Assign Route
-                            </button>
-                        </div>
-                    </div>
+            <div class="col-md-6">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success flex-fill" onclick="optimizeRoute()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Optimize Route
+                    </button>
+                    <button class="btn btn-info flex-fill" onclick="showRouteDetails()">
+                        <i class="bi bi-list-check me-1"></i>Route Details
+                    </button>
+                    <button class="btn btn-warning flex-fill" data-bs-toggle="modal" data-bs-target="#assignRouteModal">
+                        <i class="bi bi-geo-alt-fill me-1"></i>Assign Route
+                    </button>
                 </div>
             </div>
         </div>
+    </div>
+</div>
+@endif
+
     </div>
 </div>
 
@@ -353,152 +358,152 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Pickup Address Modal Handler
-    const buttons = document.querySelectorAll('.show-address-btn');
-    const modalBody = document.getElementById('pickup-address-modal-body');
-    const pickupModalEl = document.getElementById('pickupAddressModal');
-    const pickupModal = new bootstrap.Modal(pickupModalEl);
+    document.addEventListener('DOMContentLoaded', () => {
+        // Pickup Address Modal Handler
+        const buttons = document.querySelectorAll('.show-address-btn');
+        const modalBody = document.getElementById('pickup-address-modal-body');
+        const pickupModalEl = document.getElementById('pickupAddressModal');
+        const pickupModal = new bootstrap.Modal(pickupModalEl);
 
-    buttons.forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const pickups = JSON.parse(btn.dataset.pickups);
+        buttons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const pickups = JSON.parse(btn.dataset.pickups);
 
-            // Show modal with loading state
-            modalBody.innerHTML = `
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary mb-3" role="status">
-                        <span class="visually-hidden">Loading...</span>
+                // Show modal with loading state
+                modalBody.innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted">Fetching addresses from OpenStreetMap...</p>
                     </div>
-                    <p class="text-muted">Fetching addresses from OpenStreetMap...</p>
-                </div>
-            `;
-            pickupModal.show();
+                `;
+                pickupModal.show();
 
-            let addressesHtml = '<div class="list-group">';
-            let count = 1;
+                let addressesHtml = '<div class="list-group">';
+                let count = 1;
 
-            for (const pickup of pickups) {
-                const lat = pickup.lat;
-                const lng = pickup.lng;
+                for (const pickup of pickups) {
+                    const lat = pickup.lat;
+                    const lng = pickup.lng;
 
-                try {
-                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
-                    const data = await res.json();
-                    const address = data.display_name || `${lat}, ${lng}`;
-                    addressesHtml += `
-                        <div class="list-group-item">
-                            <div class="d-flex align-items-start">
-                                <span class="badge bg-primary me-2 mt-1">${count}</span>
-                                <div class="flex-grow-1">
-                                    <small class="text-muted d-block">Pickup Location ${count}</small>
-                                    <p class="mb-0">${address}</p>
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+                        const data = await res.json();
+                        const address = data.display_name || `${lat}, ${lng}`;
+                        addressesHtml += `
+                            <div class="list-group-item">
+                                <div class="d-flex align-items-start">
+                                    <span class="badge bg-primary me-2 mt-1">${count}</span>
+                                    <div class="flex-grow-1">
+                                        <small class="text-muted d-block">Pickup Location ${count}</small>
+                                        <p class="mb-0">${address}</p>
+                                    </div>
                                 </div>
                             </div>
+                        `;
+                    } catch (err) {
+                        addressesHtml += `
+                            <div class="list-group-item">
+                                <div class="d-flex align-items-start">
+                                    <span class="badge bg-secondary me-2 mt-1">${count}</span>
+                                    <div class="flex-grow-1">
+                                        <small class="text-muted d-block">Pickup Location ${count}</small>
+                                        <p class="mb-0">${lat}, ${lng} <span class="text-warning">(Location unavailable)</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    count++;
+                }
+
+                addressesHtml += '</div>';
+                modalBody.innerHTML = addressesHtml;
+            });
+        });
+
+        // Current Location Reverse Geocoding
+        const locationCells = document.querySelectorAll('.current-location');
+
+        locationCells.forEach(async cell => {
+            const lat = cell.dataset.lat;
+            const lng = cell.dataset.lng;
+
+            if (lat && lng) {
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+                    const data = await response.json();
+                    const address = data.display_name || `${lat}, ${lng}`;
+                    cell.innerHTML = `
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-geo-alt-fill text-primary me-2"></i>
+                            <span class="small">${address}</span>
                         </div>
                     `;
                 } catch (err) {
-                    addressesHtml += `
-                        <div class="list-group-item">
-                            <div class="d-flex align-items-start">
-                                <span class="badge bg-secondary me-2 mt-1">${count}</span>
-                                <div class="flex-grow-1">
-                                    <small class="text-muted d-block">Pickup Location ${count}</small>
-                                    <p class="mb-0">${lat}, ${lng} <span class="text-warning">(Location unavailable)</span></p>
-                                </div>
-                            </div>
+                    cell.innerHTML = `
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                            <span class="small">${lat}, ${lng} (Location unavailable)</span>
                         </div>
                     `;
                 }
-                count++;
+            } else {
+                cell.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-question-circle-fill text-muted me-2"></i>
+                        <span class="small text-muted">No location data</span>
+                    </div>
+                `;
             }
-
-            addressesHtml += '</div>';
-            modalBody.innerHTML = addressesHtml;
         });
-    });
 
-    // Current Location Reverse Geocoding
-    const locationCells = document.querySelectorAll('.current-location');
-
-    locationCells.forEach(async cell => {
-        const lat = cell.dataset.lat;
-        const lng = cell.dataset.lng;
-
-        if (lat && lng) {
-            try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
-                const data = await response.json();
-                const address = data.display_name || `${lat}, ${lng}`;
-                cell.innerHTML = `
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-geo-alt-fill text-primary me-2"></i>
-                        <span class="small">${address}</span>
-                    </div>
-                `;
-            } catch (err) {
-                cell.innerHTML = `
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-                        <span class="small">${lat}, ${lng} (Location unavailable)</span>
-                    </div>
-                `;
-            }
-        } else {
-            cell.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <i class="bi bi-question-circle-fill text-muted me-2"></i>
-                    <span class="small text-muted">No location data</span>
-                </div>
-            `;
+        // Truck Search Functionality
+        const searchInput = document.getElementById('truck-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const rows = document.querySelectorAll('#truck-status-table tr');
+                
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                });
+            });
         }
     });
 
-    // Truck Search Functionality
-    const searchInput = document.getElementById('truck-search');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const rows = document.querySelectorAll('#truck-status-table tr');
-            
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
-        });
+    // Placeholder functions for button handlers
+    function toggleAutoRefresh() {
+        const statusSpan = document.getElementById('refresh-status');
+        const currentStatus = statusSpan.textContent.includes('ON');
+        statusSpan.textContent = currentStatus ? 'Auto Refresh: OFF' : 'Auto Refresh: ON';
     }
-});
 
-// Placeholder functions for button handlers
-function toggleAutoRefresh() {
-    const statusSpan = document.getElementById('refresh-status');
-    const currentStatus = statusSpan.textContent.includes('ON');
-    statusSpan.textContent = currentStatus ? 'Auto Refresh: OFF' : 'Auto Refresh: ON';
-}
+    function centerMapOnFleet() {
+        console.log('Centering map on fleet...');
+    }
 
-function centerMapOnFleet() {
-    console.log('Centering map on fleet...');
-}
+    function toggleTrafficLayer() {
+        console.log('Toggling traffic layer...');
+    }
 
-function toggleTrafficLayer() {
-    console.log('Toggling traffic layer...');
-}
+    function optimizeRoute() {
+        console.log('Optimizing route...');
+    }
 
-function optimizeRoute() {
-    console.log('Optimizing route...');
-}
+    function showRouteDetails() {
+        console.log('Showing route details...');
+    }
 
-function showRouteDetails() {
-    console.log('Showing route details...');
-}
+    function exportFleetData() {
+        console.log('Exporting fleet data...');
+    }
 
-function exportFleetData() {
-    console.log('Exporting fleet data...');
-}
-
-function savePickupPoints() {
-    console.log('Saving pickup points...');
-}
+    function savePickupPoints() {
+        console.log('Saving pickup points...');
+    }
 </script>
 
 @endsection

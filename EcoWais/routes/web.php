@@ -106,6 +106,10 @@ Route::get('/reset-password/{token}', [AuthController::class, 'showResetForm'])-
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 
 
+Route::get('/manage-locations', [LocationController::class, 'manageLocation'])->name('location-manager');
+Route::post('/locations/assign-admin', [LocationController::class, 'assignAdmin'])
+    ->name('locations.assignAdmin');
+
 Route::get('/barangay-admin/homepage', function () {
 
     $userId = session('user_id'); // or Auth::id() if using Laravel Auth
@@ -218,7 +222,229 @@ return view('barangay-admin.homepage', compact(
 
 })->name('barangay.admin.homepage');
 
+Route::get('/barangay-admin/report', function () {
 
+    $userId = session('user_id'); // or Auth::id() if using Laravel Auth
+
+    // All locations (for dropdowns, etc.)
+    $locations = Location::all();
+
+    // Get the location managed by this admin
+    $selectedLocation = Location::where('adminId', $userId)->first();
+
+    // Initialize truckData collection for the table
+    $truckData = collect();
+
+    if ($selectedLocation) {
+        
+         $sessionPickups = Pickup::where('location_id', $selectedLocation->id)
+    ->orderBy('pickup_date', 'asc')
+    ->pluck('pickup_date'); // <-- use pluck to get only the dates
+
+        // Get trucks assigned to this location with drivers
+        $trucks = Truck::with('driver.user')
+            ->where('initial_location', $selectedLocation->location)
+            ->get();
+
+        foreach ($trucks as $truck) {
+            $driver = $truck->driver->user ?? null;
+
+            if ($driver) {
+                // Get today's attendance for this driver
+                $attendance = Attendance::where('user_id', $driver->id)
+                    ->whereDate('created_at', now()->toDateString())
+                    ->first();
+
+                $timeIn = $attendance->time_in ?? '-';
+                $timeOut = $attendance->time_out ?? '-';
+                $status = $attendance->status ?? 'Not Recorded';
+
+                // Calculate hours worked if both time in/out exist
+                $timeIn = $attendance->time_in ?? null;
+                $timeOut = $attendance->time_out ?? null;
+                $status = $attendance->status ?? 'Not Recorded';
+
+                $hoursWorked = '-';
+                if ($timeIn && $timeOut) {
+                    $hoursWorked = \Carbon\Carbon::parse($timeIn)
+                        ->diffInHours(\Carbon\Carbon::parse($timeOut));
+                }
+
+
+                $truckData->push([
+                    'name' => $driver->name,
+                    'role' => $driver->role,
+                    'truck_id' => $truck->id,
+                    'driver_user_id' => $driver->id, // <-- needed for attendance forms
+                    'time_in' => $timeIn ?? '-',
+                    'time_out' => $timeOut ?? '-',
+                    'hours_worked' => $hoursWorked,
+                    'status' => $status,
+                    'sessionPickups' => $sessionPickups
+                ]);
+
+
+            }
+        }
+    }
+
+    // Attendance stats
+    $attendance = Attendance::all();
+    $total = $attendance->count();
+    $location = Location::where('adminId', $userId)->first();
+
+    if ($location) {
+        // Filter attendances by location_id
+        $attendances = Attendance::where('location_id', $location->id)->get();
+
+        $absent  = $attendances->where('status', 'Absent')->count();
+        $present = $attendances->where('status', 'Present')->count();
+        $late    = $attendances->where('status', 'Late')->count();
+    } else {
+        $absent = $present = $late = 0; // no location assigned
+    }
+
+        // Collectors (all trucks for now)
+        $collectors1 = Truck::all();
+
+        // Reports with driver information
+        $reports = BarangayReport::with('driver.user')
+                    ->where('adminId', $userId)
+                    ->orderBy('incident_datetime', 'desc')
+                    ->get();
+
+        // Get pickups for this admin's location
+        $pickupDates = collect();
+        if ($selectedLocation) {
+            $pickupDates = Pickup::where('location_id', $selectedLocation->id)
+                ->pluck('pickup_date');
+        }
+
+    return view('barangay-admin.report-issue', compact(
+        'locations',
+        'selectedLocation',
+        'truckData',
+        'absent',
+        'present',
+        'late',
+        'reports',
+        'collectors1',
+        'pickupDates',
+    ));
+
+})->name('barangay.admin.report');
+
+Route::get('/barangay-admin/attendance', function () {
+
+    $userId = session('user_id'); // or Auth::id() if using Laravel Auth
+
+    // All locations (for dropdowns, etc.)
+    $locations = Location::all();
+
+    // Get the location managed by this admin
+    $selectedLocation = Location::where('adminId', $userId)->first();
+
+    // Initialize truckData collection for the table
+    $truckData = collect();
+
+    if ($selectedLocation) {
+        
+         $sessionPickups = Pickup::where('location_id', $selectedLocation->id)
+    ->orderBy('pickup_date', 'asc')
+    ->pluck('pickup_date'); // <-- use pluck to get only the dates
+
+        // Get trucks assigned to this location with drivers
+        $trucks = Truck::with('driver.user')
+            ->where('initial_location', $selectedLocation->location)
+            ->get();
+
+        foreach ($trucks as $truck) {
+            $driver = $truck->driver->user ?? null;
+
+            if ($driver) {
+                // Get today's attendance for this driver
+                $attendance = Attendance::where('user_id', $driver->id)
+                    ->whereDate('created_at', now()->toDateString())
+                    ->first();
+
+                $timeIn = $attendance->time_in ?? '-';
+                $timeOut = $attendance->time_out ?? '-';
+                $status = $attendance->status ?? 'Not Recorded';
+
+                // Calculate hours worked if both time in/out exist
+                $timeIn = $attendance->time_in ?? null;
+                $timeOut = $attendance->time_out ?? null;
+                $status = $attendance->status ?? 'Not Recorded';
+
+                $hoursWorked = '-';
+                if ($timeIn && $timeOut) {
+                    $hoursWorked = \Carbon\Carbon::parse($timeIn)
+                        ->diffInHours(\Carbon\Carbon::parse($timeOut));
+                }
+
+
+                $truckData->push([
+                    'name' => $driver->name,
+                    'role' => $driver->role,
+                    'truck_id' => $truck->id,
+                    'driver_user_id' => $driver->id, // <-- needed for attendance forms
+                    'time_in' => $timeIn ?? '-',
+                    'time_out' => $timeOut ?? '-',
+                    'hours_worked' => $hoursWorked,
+                    'status' => $status,
+                    'sessionPickups' => $sessionPickups
+                ]);
+
+
+            }
+        }
+    }
+
+    // Attendance stats
+    $attendance = Attendance::all();
+    $total = $attendance->count();
+    $location = Location::where('adminId', $userId)->first();
+
+    if ($location) {
+        // Filter attendances by location_id
+        $attendances = Attendance::where('location_id', $location->id)->get();
+
+        $absent  = $attendances->where('status', 'Absent')->count();
+        $present = $attendances->where('status', 'Present')->count();
+        $late    = $attendances->where('status', 'Late')->count();
+    } else {
+        $absent = $present = $late = 0; // no location assigned
+    }
+
+        // Collectors (all trucks for now)
+        $collectors1 = Truck::all();
+
+        // Reports with driver information
+        $reports = BarangayReport::with('driver.user')
+                    ->where('adminId', $userId)
+                    ->orderBy('incident_datetime', 'desc')
+                    ->get();
+
+        // Get pickups for this admin's location
+        $pickupDates = collect();
+        if ($selectedLocation) {
+            $pickupDates = Pickup::where('location_id', $selectedLocation->id)
+                ->pluck('pickup_date');
+        }
+
+    return view('barangay-admin.attendance', compact(
+        'locations',
+        'selectedLocation',
+        'truckData',
+        'absent',
+        'present',
+        'late',
+        'reports',
+        'collectors1',
+        'pickupDates',
+    ));
+
+})->name('barangay.admin.attendance');
 
 // routes/web.php
 Route::get('/barangay/{id}/trucks', [DriverController::class, 'getTrucks'])->name('barangay.trucks');
@@ -440,10 +666,15 @@ Route::post('/trucks', [TruckController::class, 'store'])->name('trucks.store');
 Route::post('/pickup', [PickupController::class, 'store'])->name('pickup.store');
 Route::get('/municipality-admin/scheduling', [PickupController::class, 'index'])->name('municipality.scheduling');
 Route::delete('/pickup/{id}', [PickupController::class, 'destroy'])->name('pickup.destroy');
-Route::get('/pickup-locations', [PickupController::class, 'getPickupLocations'])->name('pickup.locations');
+
 
 Route::post('/update-truck-pickups', [TruckController::class, 'updatePickups']);
+
+
 Route::get('/truck-pickups', [TruckController::class, 'getTruckPickups']);
+Route::get('/pickup-locations', [PickupController::class, 'getPickupLocations'])->name('pickup.locations');
+
+
 Route::post('/api/get-route', [TruckController::class, 'getRoute']);
 Route::get('municipality-admin/dashboard', function () {  
     return view('municipality-admin.dashboard');
@@ -459,21 +690,34 @@ Route::post('/pickup/{pickup}/complete-point', [PickupController::class, 'comple
 
 
 
+
 Route::get('/shared-view/map', function () {
-    $trucks = DB::table('trucks')
+    $userId = session('user_id'); // or Auth::id() if using Laravel auth
+    $userRole = DB::table('users')
+    ->where('id', $userId)
+    ->value('role'); // returns the role as a string
+
+    // Base query
+    $trucksQuery = DB::table('trucks')
         ->leftJoin('drivers', 'trucks.driver_id', '=', 'drivers.id')
         ->leftJoin('users', 'drivers.user_id', '=', 'users.id')
         ->select(
             'trucks.*',
             'users.name as driver_name'
-        )
-        ->get();
+        );
+
+    // Filter by collector role
+    if ($userRole === 'barangay_waste_collector') {
+        // Only trucks assigned to this user
+        $trucksQuery->where('drivers.user_id', $userId);
+    }
+
+    $trucks = $trucksQuery->get();
 
     // Fetch all pickups
     $allPickups = DB::table('pickups')->get();
 
     foreach ($trucks as $truck) {
-        // Total pickups in truck JSON
         $totalNodes = 0;
         $truckPickups = [];
         if ($truck->pickups) {
@@ -481,18 +725,15 @@ Route::get('/shared-view/map', function () {
             $totalNodes = count($truckPickups);
         }
 
-        // Completed pickups for this truck
         $completedNodes = 0;
         $currentLat = null;
         $currentLng = null;
 
         foreach ($allPickups as $pickup) {
             if ($pickup->truck_id == $truck->id) {
-                // Get current latitude/longitude (latest pickup)
                 $currentLat = $pickup->current_latitude ?? $currentLat;
                 $currentLng = $pickup->current_longitude ?? $currentLng;
 
-                // Count completed routes
                 if ($pickup->completed_routes) {
                     $completedRoutes = is_array($pickup->completed_routes) ? $pickup->completed_routes : json_decode($pickup->completed_routes, true);
                     $completedNodes += count($completedRoutes);
@@ -500,7 +741,7 @@ Route::get('/shared-view/map', function () {
             }
         }
 
-        $truck->progress = $completedNodes . '/' . $totalNodes; // e.g., 2/5
+        $truck->progress = $completedNodes . '/' . $totalNodes;
         $truck->current_latitude = $currentLat;
         $truck->current_longitude = $currentLng;
     }

@@ -69,6 +69,11 @@
             User Management
         </a>
 
+        <a class="nav-link {{ request()->routeIs('location-manager') ? 'active' : '' }}"
+           href="{{ route('location-manager') }}">
+            Manage Locations
+        </a>
+
     </nav>
 
     <!-- User -->

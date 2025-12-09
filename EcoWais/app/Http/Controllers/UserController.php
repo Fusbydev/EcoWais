@@ -29,7 +29,7 @@ public function store(Request $request)
         ]);
 
         // Check if email exists manually
-        if (\App\Models\User::where('email', $validated['email'])->exists()) {
+        if (User::where('email', $validated['email'])->exists()) {
             return redirect()->route('user-management')
                 ->with('error', 'A user with this email already exists.');
         }
@@ -44,24 +44,26 @@ public function store(Request $request)
             'phone_number' => $validated['phone'] ?? null,
         ]);
 
-        // Send email verification
+        // Send verification email
         event(new \Illuminate\Auth\Events\Registered($user));
 
-        // Only create driver if role is barangay_waste_collector
+        // If collector, create driver record
         if ($validated['role'] === 'barangay_waste_collector') {
-            \App\Models\Driver::create([
+            Driver::create([
                 'user_id'      => $user->id,
                 'phone_number' => $validated['phone'] ?? null,
             ]);
         }
 
         return redirect()->route('user-management')
-            ->with('success', 'User has been successfully created. A verification email has been sent.');
+            ->with('success', 'User created successfully. Verification email sent.');
 
     } catch (\Exception $e) {
-        dd($e->getMessage());
+        return redirect()->back()
+            ->with('error', $e->getMessage());
     }
 }
+
 
 
 

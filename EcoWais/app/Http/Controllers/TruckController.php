@@ -73,23 +73,46 @@ class TruckController extends Controller
 public function getTruckPickups()
 {
     try {
-        $trucks = Truck::with('driver')->get();
+        // Get current user ID from session or Auth
+        $userId = session('user_id'); // or Auth::id()
+
+        // Fetch user role from the database
+        $user = \App\Models\User::find($userId);
+        $userRole = $user->role ?? null; // e.g., 'admin' or 'barangay_waste_collector'
+
+        // Base query
+        $trucksQuery = Truck::with('driver.user');
+
+        // If user is a waste collector, only get their assigned truck(s)
+        if ($userRole === 'barangay_waste_collector') {
+            $trucksQuery->whereHas('driver', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            });
+        }
+
+        $trucks = $trucksQuery->get();
 
         $data = $trucks->map(function($truck) {
+            // Decode pickups JSON if needed
             $pickups = $truck->pickups;
-
-            // If it's a string, decode it; if it's already an array, leave it
             if (is_string($pickups)) {
                 $pickups = json_decode($pickups, true);
             } elseif (!is_array($pickups)) {
                 $pickups = [];
             }
 
+            // Decode initial_coords if stored as JSON
+            $initial_coords = $truck->initial_coords;
+            if (is_string($initial_coords)) {
+                $initial_coords = json_decode($initial_coords, true);
+            }
+
             return [
-                'id'            => $truck->id,  // ✅ Add this line
+                'id'            => $truck->id,
                 'truck_id'      => $truck->truck_id,
-                'driver_name'   => $truck->driver->name ?? null,
-                'initial_coords'=> $truck->initial_coords ?? null,
+                'driver_name'   => $truck->driver->user->name ?? null,
+                'user_id'       => $truck->driver->user_id ?? null,
+                'initial_coords'=> $initial_coords ?? null,
                 'pickups'       => $pickups
             ];
         });
@@ -102,6 +125,8 @@ public function getTruckPickups()
         ], 500);
     }
 }
+
+
 
 public function getDriverPickupAddressesByUser(Request $request)
 {

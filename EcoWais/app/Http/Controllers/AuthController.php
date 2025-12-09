@@ -43,12 +43,23 @@ class AuthController extends Controller
         return back()->withErrors(['role' => 'Role does not match']);
     }
 
-    // **Check if email is verified**
+    // ✅ Barangay admin must be assigned to a location
+    if ($user->role === 'barangay_admin') {
+        $isAssigned = \App\Models\Location::where('adminId', $user->id)->exists();
+
+        if (!$isAssigned) {
+            return back()->withErrors([
+                'location' => 'Your account is not assigned to any barangay. Please contact the administrator.'
+            ]);
+        }
+    }
+
+    // Check if email is verified
     if (!$user->hasVerifiedEmail()) {
         return back()->withErrors(['email' => 'You need to verify your email before logging in.']);
     }
 
-    // Login success, store in session
+    // Login success - store session
     session([
         'user_id' => $user->id,
         'user_role' => $user->role,
@@ -70,6 +81,7 @@ class AuthController extends Controller
             return redirect('/');
     }
 }
+
 
 
 public function showLoginForm()

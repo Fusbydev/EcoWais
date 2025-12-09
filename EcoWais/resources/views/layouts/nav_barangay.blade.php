@@ -112,10 +112,18 @@
     <nav class="nav flex-column gap-1">
         <a class="nav-link {{ request()->routeIs('barangay.admin.homepage') ? 'active' : '' }}"
            href="{{ route('barangay.admin.homepage') }}">
-           <i class="bi bi-speedometer2 me-2"></i> Barangay Dashboard
+           <i class="bi bi-speedometer2 me-2"></i>Barangay Dashboard
         </a>
 
-        {{-- Add more links here if needed --}}
+        <a class="nav-link {{ request()->routeIs('barangay.admin.report') ? 'active' : '' }}"
+           href="{{ route('barangay.admin.report') }}">
+           <i class="bi bi-flag-fill"></i>  Report an Issue
+        </a>
+
+        <a class="nav-link {{ request()->routeIs('barangay.admin.attendance') ? 'active' : '' }}"
+           href="{{ route('barangay.admin.attendance') }}">
+           <i class="bi bi-list-check"></i>  Attendannce
+        </a>
     </nav>
 
     <!-- User Section -->

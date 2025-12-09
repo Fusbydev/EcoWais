@@ -55,8 +55,26 @@ class PickupController extends Controller
     }
 
     public function getPickupLocations()
-    {
-        $pickups = Pickup::with(['truck.driver', 'location'])->get();
+{
+    try {
+        // Get current user ID from session or Auth
+        $userId = session('user_id'); // or Auth::id()
+
+        // Fetch user role from the database
+        $user = \App\Models\User::find($userId);
+        $userRole = $user->role ?? null; // e.g., 'admin' or 'barangay_waste_collector'
+
+        // Base query with relationships
+        $pickupsQuery = Pickup::with(['truck.driver.user', 'location']);
+
+        // If user is a waste collector, only get pickups for their truck(s)
+        if ($userRole === 'barangay_waste_collector') {
+            $pickupsQuery->whereHas('truck.driver', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            });
+        }
+
+        $pickups = $pickupsQuery->get();
 
         $data = $pickups->map(function ($pickup) {
             if (!$pickup->location || !$pickup->truck) return null;
@@ -64,18 +82,25 @@ class PickupController extends Controller
             return [
                 'id' => $pickup->id,
                 'barangay' => $pickup->location->location,
-                'latitude' => $pickup->current_latitude,   // ✅ from pickups table
-                'longitude' => $pickup->current_longitude, // ✅ from pickups table
+                'latitude' => $pickup->current_latitude,
+                'longitude' => $pickup->current_longitude,
                 'truck_id' => $pickup->truck->truck_id,
-                'status' => $pickup->truck->status, // ✅ include truck status
-                'driver_name' => $pickup->truck->driver->user->name, // ✅ driver name
+                'status' => $pickup->truck->status,
+                'driver_name' => $pickup->truck->driver->user->name ?? null,
                 'pickup_date' => $pickup->pickup_date,
                 'pickup_time' => $pickup->pickup_time,
             ];
         })->filter()->values();
 
         return response()->json($data);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
+
 
     public function completePoint(Request $request, Pickup $pickup)
 {

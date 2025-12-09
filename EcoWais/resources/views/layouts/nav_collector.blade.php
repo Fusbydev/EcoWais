@@ -49,9 +49,15 @@
     <nav class="nav flex-column gap-1">
 
         <a class="nav-link {{ request()->routeIs('barangay.waste.collector.homepage') ? 'active' : '' }}"
-           href="{{ route('barangay.waste.collector.homepage') }}">
-            Driver Interface
-        </a>
+   href="{{ route('barangay.waste.collector.homepage') }}">
+    <i class="bi bi-truck me-1"></i> Driver Interface
+</a>
+
+<a class="nav-link {{ request()->routeIs('map.view') ? 'active' : '' }}"
+   href="{{ route('map.view') }}">
+    <i class="bi bi-map me-1"></i> Map View
+</a>
+
     </nav>
 
     <!-- User Section -->
