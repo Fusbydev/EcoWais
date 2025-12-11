@@ -29,17 +29,7 @@
                         </select>
                     </div>
                     
-                    <div class="col-md-2">
-                        <label class="form-label small fw-semibold text-muted">
-                            <i class="bi bi-eye-fill me-1"></i>VIEW MODE
-                        </label>
-                        <select id="view-mode" class="form-select">
-                            <option value="satellite">Satellite View</option>
-                            <option value="street">Street View</option>
-                            <option value="terrain">Terrain View</option>
-                        </select>
-                    </div>
-                    
+                
                     <div class="col-md-2">
                         <label class="form-label small fw-semibold text-muted">
                             <i class="bi bi-clock-fill me-1"></i>UPDATE INTERVAL
@@ -50,25 +40,6 @@
                             <option value="30000">30 seconds</option>
                             <option value="60000">1 minute</option>
                         </select>
-                    </div>
-                    
-                    <!--<div class="col-md-2">
-                        <button class="btn btn-success w-100" onclick="toggleAutoRefresh()">
-                            <i class="bi bi-arrow-clockwise me-1"></i>
-                            <span id="refresh-status">Auto Refresh: ON</span>
-                        </button>
-                    </div>-->
-                    
-                    <div class="col-md-2">
-                        <button class="btn btn-warning w-100" onclick="centerMapOnFleet()">
-                            <i class="bi bi-geo-alt-fill me-1"></i>Center Fleet
-                        </button>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <button class="btn btn-info w-100" onclick="toggleTrafficLayer()">
-                            <i class="bi bi-traffic-cone-fill me-1"></i>Traffic
-                        </button>
                     </div>
                 </div>
             </div>

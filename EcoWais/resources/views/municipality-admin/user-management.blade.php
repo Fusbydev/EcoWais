@@ -123,87 +123,115 @@
     </div> <!-- End Card -->
 
     <!-- ADD USER MODAL -->
-    <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content shadow">
+<!-- ADD USER MODAL -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow">
 
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="addUserLabel">Add New User</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body">
-                    <form action="{{ route('users.store') }}" method="POST">
-                        @csrf
-                        <div class="row g-3">
-
-                            <!-- Full Name -->
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Full Name</label>
-                                <input type="text" name="name" class="form-control" placeholder="Enter full name" required>
-                            </div>
-
-                            <!-- Email -->
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Email Address</label>
-                                <input type="email" name="email" class="form-control" placeholder="Enter email" required>
-                            </div>
-
-                            <!-- Phone -->
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Phone Number</label>
-                                <input 
-                                    type="text"
-                                    name="phone"
-                                    class="form-control phone-input"
-                                    id="create-phone"
-                                    placeholder="Enter phone number"
-                                    minlength="11"
-                                    maxlength="11"
-                                    required
-                                >
-                                <div class="text-danger small mt-1 d-none" id="create-phone-error">
-                                    Phone number must be exactly 11 digits.
-                                </div>
-                            </div>
-
-                            <!-- Role -->
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Role</label>
-                                <select name="role" class="form-select" required>
-                                    <option value="barangay_waste_collector">Driver</option>
-                                    <option value="barangay_admin">Barangay Admin</option>
-                                </select>
-                            </div>
-
-                            <!-- Password -->
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Password</label>
-                                <input type="password" name="password" class="form-control" placeholder="Enter password" required>
-                            </div>
-
-                            <!-- Status -->
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Status</label>
-                                <select name="status" class="form-select" required>
-                                    <option value="activated">Activated</option>
-                                    <option value="deactivated">Deactivated</option>
-                                </select>
-                            </div>
-
-                        </div>
-
-                        <div class="modal-footer mt-4">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save User</button>
-                        </div>
-
-                    </form>
-                </div>
-
+            <!-- Modal Header -->
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="addUserLabel">Add New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+
+            <!-- Modal Body -->
+            <div class="modal-body">
+                <form action="{{ route('users.store') }}" method="POST">
+                    @csrf
+
+                    <!-- First Row: Name & Email -->
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Full Name</label>
+                            <input type="text" name="name" class="form-control" placeholder="Enter full name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email Address</label>
+                            <input type="email" name="email" class="form-control" placeholder="Enter email" required>
+                        </div>
+                    </div>
+
+                    <!-- Second Row: Phone & Role -->
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Phone Number</label>
+                            <input 
+                                type="text"
+                                name="phone"
+                                class="form-control phone-input"
+                                id="create-phone"
+                                placeholder="Enter phone number"
+                                minlength="11"
+                                maxlength="11"
+                                required
+                            >
+                            <div class="text-danger small mt-1 d-none" id="create-phone-error">
+                                Phone number must be exactly 11 digits.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Role</label>
+                            <select name="role" class="form-select" id="role-select" required>
+                                <option value="barangay_waste_collector">Driver</option>
+                                <option value="barangay_admin">Barangay Admin</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Third Row: Location (hidden by default) -->
+                    <div class="row g-3 mb-2" id="location-container">
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold">Location</label>
+                            <select name="location_id" class="form-select" id="location-select" required>
+                                @foreach ($locations as $location)
+                                    <option value="{{ $location->id }}">{{ $location->location }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Third Row: Location / Truck dropdown (hidden by default) -->
+                    <div class="row g-3 mb-2 d-none" id="driver-location-container">
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold">Assign Truck / Initial Location</label>
+                            <p class="text-muted">Locations with no assigned driver will be shown</p></p>
+                            <select name="truck_id" class="form-select" id="driver-location-select">
+                                <option value="">Select truck/location</option>
+                                @foreach ($trucks as $truck)
+                                    @if (!$truck->driver_id) <!-- Only trucks without driver assigned -->
+                                        <option value="{{ $truck->id }}">{{ $truck->initial_location }}</option>
+                                    @endif
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
+
+                    <!-- Fourth Row: Password & Confirm Password -->
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Password</label>
+                            <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Confirm Password</label>
+                            <input type="password" name="password_confirmation" class="form-control" placeholder="Confirm password" required>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="modal-footer mt-4">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save User</button>
+                    </div>
+
+                </form>
+            </div>
+
         </div>
     </div>
+</div>
+
 
     <!-- EDIT USER MODALS -->
     @foreach($users as $user)
@@ -280,10 +308,43 @@
 
 </div>
 
-<!-- Global Phone Validator -->
 <script>
+document.addEventListener("DOMContentLoaded", function () {
 
-    document.addEventListener("DOMContentLoaded", function () {
+    // ROLE DROPDOWN & LOCATION DROPDOWNS
+    const roleSelect = document.getElementById('role-select');
+    const adminLocationContainer = document.getElementById('location-container');
+    const driverLocationContainer = document.getElementById('driver-location-container');
+
+    function toggleRoleDropdowns() {
+        if (roleSelect.value === 'barangay_admin') {
+            adminLocationContainer.classList.remove('d-none');
+            adminLocationContainer.querySelector('select').setAttribute('required', true);
+
+            driverLocationContainer.classList.add('d-none');
+            driverLocationContainer.querySelector('select').removeAttribute('required');
+        } else if (roleSelect.value === 'barangay_waste_collector') {
+            driverLocationContainer.classList.remove('d-none');
+            driverLocationContainer.querySelector('select').setAttribute('required', true);
+
+            adminLocationContainer.classList.add('d-none');
+            adminLocationContainer.querySelector('select').removeAttribute('required');
+        } else {
+            adminLocationContainer.classList.add('d-none');
+            driverLocationContainer.classList.add('d-none');
+            adminLocationContainer.querySelector('select').removeAttribute('required');
+            driverLocationContainer.querySelector('select').removeAttribute('required');
+        }
+    }
+
+    // Run on role change
+    roleSelect.addEventListener('change', toggleRoleDropdowns);
+
+    // Run once on page load
+    toggleRoleDropdowns();
+
+
+    // SEARCH FILTER
     const searchInput = document.getElementById("userSearch");
     const tableRows = document.querySelectorAll("table tbody tr");
 
@@ -292,28 +353,23 @@
 
         tableRows.forEach(row => {
             const nameCell = row.querySelector("td:nth-child(2)").textContent.toLowerCase();
-            if(nameCell.includes(query)) {
-                row.style.display = "";
-            } else {
-                row.style.display = "none";
-            }
+            row.style.display = nameCell.includes(query) ? "" : "none";
         });
     });
-});
 
 
-function validatePhoneField(input, errorDiv) {
-    input.value = input.value.replace(/[^0-9]/g, '').slice(0, 11);
-    if (input.value.length !== 11) {
-        errorDiv.classList.remove("d-none");
-    } else {
-        errorDiv.classList.add("d-none");
+    // PHONE VALIDATION
+    function validatePhoneField(input, errorDiv) {
+        input.value = input.value.replace(/[^0-9]/g, '').slice(0, 11);
+        if (input.value.length !== 11) {
+            errorDiv.classList.remove("d-none");
+        } else {
+            errorDiv.classList.add("d-none");
+        }
     }
-}
 
-document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll(".phone-input").forEach(function(input) {
-        let errorDiv = document.getElementById(input.id + "-error");
+        const errorDiv = document.getElementById(input.id + "-error");
 
         input.addEventListener("input", function() {
             validatePhoneField(input, errorDiv);
@@ -326,7 +382,9 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     });
+
 });
 </script>
+
 
 @endsection

@@ -107,6 +107,57 @@
         </tr>
         @endforeach
     </table>
+<!-- Attendance Section -->
+<!-- Attendance Section -->
+<h2>Attendance Report</h2>
+<table>
+    <tr>
+        <th>Driver Name</th>
+        <th>Barangay</th>
+        <th>Pickup Date</th>
+        <th>Time In</th>
+        <th>Time Out</th>
+        <th>Hours Worked</th>
+        <th>Status</th>
+        <th>Remarks</th>
+    </tr>
+    @foreach($reports['attendance'] as $att)
+        @php
+            $hoursWorked = '-';
+            $remarks = '-';
+            if ($att->time_in && $att->time_out) {
+                $hoursWorked = number_format(\Carbon\Carbon::parse($att->time_in)
+                    ->floatDiffInHours(\Carbon\Carbon::parse($att->time_out)), 2);
+            }
+            switch($att->status) {
+                case 'Present':
+                    $remarks = 'On Time';
+                    break;
+                case 'Late':
+                    $remarks = 'Late Arrival';
+                    break;
+                case 'Absent':
+                    $remarks = 'Did not report';
+                    break;
+                default:
+                    $remarks = $att->status ?? '-';
+            }
+
+            $driver = $reports['users']->firstWhere('id', $att->user_id);
+            $location = $reports['locations']->firstWhere('id', $att->location_id);
+        @endphp
+        <tr>
+            <td>{{ $driver->name ?? 'Unknown' }}</td>
+            <td>{{ $location->location ?? 'Unknown' }}</td>
+            <td>{{ $att->pickupSession ?? '-' }}</td>
+            <td>{{ $att->time_in ? \Carbon\Carbon::parse($att->time_in)->format('Y-m-d H:i:s') : '-' }}</td>
+            <td>{{ $att->time_out ? \Carbon\Carbon::parse($att->time_out)->format('Y-m-d H:i:s') : '-' }}</td>
+            <td>{{ $hoursWorked }}</td>
+            <td>{{ $att->status ?? '-' }}</td>
+            <td>{{ $remarks }}</td>
+        </tr>
+    @endforeach
+</table>
 
     <!-- Dashboard Section -->
 <h2>Waste Dashboard</h2>

@@ -54,20 +54,20 @@ class PickupController extends Controller
                          ->with('success', 'Pickup schedule deleted successfully!');
     }
 
-    public function getPickupLocations()
+   public function getPickupLocations()
 {
     try {
-        // Get current user ID from session or Auth
         $userId = session('user_id'); // or Auth::id()
-
-        // Fetch user role from the database
         $user = \App\Models\User::find($userId);
         $userRole = $user->role ?? null; // e.g., 'admin' or 'barangay_waste_collector'
 
-        // Base query with relationships
-        $pickupsQuery = Pickup::with(['truck.driver.user', 'location']);
+        // Only get pickups for trucks with tracking = True
+        $pickupsQuery = Pickup::with(['truck.driver.user', 'location'])
+            ->whereHas('truck', function ($q) {
+                $q->where('tracking', 'True');
+            });
 
-        // If user is a waste collector, only get pickups for their truck(s)
+        // If user is a waste collector, only their assigned truck(s)
         if ($userRole === 'barangay_waste_collector') {
             $pickupsQuery->whereHas('truck.driver', function ($q) use ($userId) {
                 $q->where('user_id', $userId);
@@ -100,6 +100,8 @@ class PickupController extends Controller
         ], 500);
     }
 }
+
+
 
 
     public function completePoint(Request $request, Pickup $pickup)

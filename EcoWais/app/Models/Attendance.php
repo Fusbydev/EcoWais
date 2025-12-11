@@ -18,9 +18,20 @@ class Attendance extends Model
         'pickupSession',
     ];
 
-    // This is the key fix:
     protected $casts = [
         'time_in' => 'datetime',
         'time_out' => 'datetime',
     ];
+
+    // Relationship to User
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    // Relationship to Location
+    public function location()
+    {
+        return $this->belongsTo(Location::class, 'location_id');
+    }
 }

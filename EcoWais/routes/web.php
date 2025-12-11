@@ -29,28 +29,28 @@ use Illuminate\Foundation\Auth\EmailVerificationRequest;
 
 Route::get('/email/verify', function () {
     return view('auth.verify-email');
-})->name('verification.notice');
+})->middleware('auth')->name('verification.notice');
 
 Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
 
     $user = User::findOrFail($id);
 
-    // Check if hash matches user's email
-    if (! hash_equals(sha1($user->email), $hash)) {
-        abort(403); // Invalid link
+    if (! request()->hasValidSignature()) {
+        abort(403, 'Invalid or expired verification link');
     }
 
-    // Already verified?
-    if ($user->hasVerifiedEmail()) {
-        return redirect('/login')->with('message', 'Email already verified.');
+    if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+        abort(403, 'Invalid verification hash');
     }
 
-    // Mark email as verified
-    $user->markEmailAsVerified();
+    if (!$user->hasVerifiedEmail()) {
+        $user->markEmailAsVerified();
+        event(new \Illuminate\Auth\Events\Verified($user));
+    }
 
     return redirect('/login')->with('verified', true);
 
-})->middleware(['signed'])->name('verification.verify');
+})->middleware('signed')->name('verification.verify');
 
 
 
@@ -87,6 +87,7 @@ Route::post('/users/{user}/activate', [UserController::class, 'activate'])->name
 // Deactivate user
 Route::post('/users/{user}/deactivate', [UserController::class, 'deactivate'])->name('users.deactivate');
 
+Route::post('/update-tracking', [TruckController::class, 'updateTracking'])->name('update-tracking');
 
 Route::get('/', function() {
     return view('login'); // make sure login.blade.php exists
@@ -107,6 +108,8 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('
 
 
 Route::get('/manage-locations', [LocationController::class, 'manageLocation'])->name('location-manager');
+
+
 Route::post('/locations/assign-admin', [LocationController::class, 'assignAdmin'])
     ->name('locations.assignAdmin');
 
@@ -348,57 +351,55 @@ Route::get('/barangay-admin/attendance', function () {
     $truckData = collect();
 
     if ($selectedLocation) {
-        
-         $sessionPickups = Pickup::where('location_id', $selectedLocation->id)
-    ->orderBy('pickup_date', 'asc')
-    ->pluck('pickup_date'); // <-- use pluck to get only the dates
 
-        // Get trucks assigned to this location with drivers
-        $trucks = Truck::with('driver.user')
-            ->where('initial_location', $selectedLocation->location)
-            ->get();
+    $today = now()->toDateString();
 
-        foreach ($trucks as $truck) {
-            $driver = $truck->driver->user ?? null;
+    // Get pickups for this location, up to today
+    $pickups = Pickup::with(['truck.driver.user'])
+        ->where('location_id', $selectedLocation->id)
+        ->whereDate('pickup_date', '<=', $today) // include today, exclude future
+        ->orderBy('pickup_date', 'desc')
+        ->get();
 
-            if ($driver) {
-                // Get today's attendance for this driver
-                $attendance = Attendance::where('user_id', $driver->id)
-                    ->whereDate('created_at', now()->toDateString())
-                    ->first();
+    foreach ($pickups as $pickup) {
 
-                $timeIn = $attendance->time_in ?? '-';
-                $timeOut = $attendance->time_out ?? '-';
-                $status = $attendance->status ?? 'Not Recorded';
+    $truck = $pickup->truck;
+    $driver = $truck?->driver?->user;
 
-                // Calculate hours worked if both time in/out exist
-                $timeIn = $attendance->time_in ?? null;
-                $timeOut = $attendance->time_out ?? null;
-                $status = $attendance->status ?? 'Not Recorded';
+    if ($driver) {
+        // Get attendance for this driver on this pickup session
+        $attendance = Attendance::where('user_id', $driver->id)
+            ->where('pickupSession', $pickup->pickup_date) // use pickupSession, not created_at
+            ->latest() // get the most recent record if multiple exist
+            ->first();
 
-                $hoursWorked = '-';
-                if ($timeIn && $timeOut) {
-                    $hoursWorked = \Carbon\Carbon::parse($timeIn)
-                        ->diffInHours(\Carbon\Carbon::parse($timeOut));
-                }
+        $timeIn = $attendance->time_in ?? '-';
+        $timeOut = $attendance->time_out ?? '-';
+        $status = $attendance->status ?? 'Not Recorded';
 
-
-                $truckData->push([
-                    'name' => $driver->name,
-                    'role' => $driver->role,
-                    'truck_id' => $truck->id,
-                    'driver_user_id' => $driver->id, // <-- needed for attendance forms
-                    'time_in' => $timeIn ?? '-',
-                    'time_out' => $timeOut ?? '-',
-                    'hours_worked' => $hoursWorked,
-                    'status' => $status,
-                    'sessionPickups' => $sessionPickups
-                ]);
-
-
-            }
+        $hoursWorked = '-';
+        if ($attendance && $attendance->time_in && $attendance->time_out) {
+            $hoursWorked = \Carbon\Carbon::parse($attendance->time_in)
+                ->diffInHours(\Carbon\Carbon::parse($attendance->time_out));
         }
+
+        $truckData->push([
+            'name' => $driver->name,
+            'role' => $driver->role,
+            'truck_id' => $truck->truck_id,
+            'driver_user_id' => $driver->id,
+            'time_in' => $timeIn,
+            'time_out' => $timeOut,
+            'hours_worked' => $hoursWorked,
+            'status' => $status,
+            'pickup_date' => $pickup->pickup_date,
+        ]);
     }
+}
+
+}
+
+
 
     // Attendance stats
     $attendance = Attendance::all();
@@ -529,12 +530,15 @@ Route::get('barangay-waste-collector/homepage', function () {
     $monthTotal = WasteCollection::where('pickup_date', 'like', "$month%")
         ->sum('kilos');
 
+    $totalWaste = \App\Models\WasteCollection::sum('kilos');
+
     return view('barangay-waste-collector.homepage', [
         'scheduledPickups' => $scheduledPickups,
         'driver' => $driver,
         'locations' => $locations,
         'todayTotal' => $todayTotal,
         'monthTotal' => $monthTotal,
+        'totalWaste' => $totalWaste,
         'totalCompleted' => $totalCompleted,
         'totalPending' => $totalPending
     ]);
@@ -601,66 +605,81 @@ Route::post('/reports/{id}/resolve', [BarangayReportController::class, 'resolve'
 
 Route::post('/locations/store', [LocationController::class, 'store'])->name('locations.store');
 //municipality-admin
-Route::get('municipality-admin/admin', function () {
+Route::get('municipality-admin/admin', function (\Illuminate\Http\Request $request) {
+    $filter = $request->query('filter', 'monthly'); // default monthly
+
     $drivers = Driver::with('user', 'truck')->get();
     $users = User::all();
     $locations = Location::all();
     $trucks = Truck::all();
     $reports = BarangayReport::all();
+    $attendance = Attendance::all();
 
-    // --- Waste Dashboard Data ---
+    // --- Waste Dashboard Stats ---
     $todayTotal = WasteCollection::whereDate('pickup_date', now())->sum('kilos');
-
     $monthTotal = WasteCollection::whereMonth('pickup_date', now()->month)
                     ->whereYear('pickup_date', now()->year)
                     ->sum('kilos');
-
+    $totalWaste = WasteCollection::sum('kilos');    
     $totalCollections = WasteCollection::count();
 
-    // Daily waste for current month (Line chart)
-    $dailyDataQuery = WasteCollection::select(
+    // --- Daily Waste Chart Data ---
+    $dailyQuery = WasteCollection::select(
         DB::raw('DATE(pickup_date) as date'),
         DB::raw('SUM(kilos) as total')
-    )
-    ->whereMonth('pickup_date', now()->month)
-    ->whereYear('pickup_date', now()->year)
-    ->groupBy('date')
-    ->orderBy('date')
-    ->get();
+    );
 
+    if ($filter === 'today') {
+        $dailyQuery->whereDate('pickup_date', now());
+    } elseif ($filter === 'weekly') {
+        $dailyQuery->whereBetween('pickup_date', [now()->startOfWeek(), now()->endOfWeek()]);
+    } else { // monthly
+        $dailyQuery->whereMonth('pickup_date', now()->month)
+                   ->whereYear('pickup_date', now()->year);
+    }
+
+    $dailyDataQuery = $dailyQuery->groupBy('date')->orderBy('date')->get();
     $dailyLabels = $dailyDataQuery->pluck('date');
     $dailyData = $dailyDataQuery->pluck('total');
 
-    // Waste by type (Doughnut chart)
+    // --- Waste by Type (Doughnut Chart) ---
     $typeLabels = ['Plastic', 'Biodegradable', 'Metal', 'Glass'];
+    $typeDataQuery = WasteCollection::select('waste_type', DB::raw('SUM(kilos) as total'))
+                    ->whereIn('waste_type', $typeLabels);
 
-$typeDataQuery = WasteCollection::select(
-    'waste_type',
-    DB::raw('SUM(kilos) as total')
-)
-->whereIn('waste_type', $typeLabels)
-->groupBy('waste_type')
-->get()
-->keyBy('waste_type');
+    if ($filter === 'today') {
+        $typeDataQuery->whereDate('pickup_date', now());
+    } elseif ($filter === 'weekly') {
+        $typeDataQuery->whereBetween('pickup_date', [now()->startOfWeek(), now()->endOfWeek()]);
+    } else { // monthly
+        $typeDataQuery->whereMonth('pickup_date', now()->month)
+                      ->whereYear('pickup_date', now()->year);
+    }
 
-$typeData = [];
-foreach ($typeLabels as $label) {
-    $typeData[$label] = isset($typeDataQuery[$label]) ? $typeDataQuery[$label]->total : 0;
-}
+    $typeDataQuery = $typeDataQuery->groupBy('waste_type')->get()->keyBy('waste_type');
 
+    $typeData = [];
+    foreach ($typeLabels as $label) {
+        $typeData[$label] = isset($typeDataQuery[$label]) ? $typeDataQuery[$label]->total : 0;
+    }
 
     return view('municipality-admin.admin', compact(
         'locations', 'drivers', 'trucks', 'reports', 'users',
         'todayTotal', 'monthTotal', 'totalCollections',
-        'dailyLabels', 'dailyData', 'typeLabels', 'typeData'
+        'dailyLabels', 'dailyData', 'typeLabels', 'typeData', 'totalWaste',
+        'attendance', 'filter'
     ));
 })->name('municipality.admin');
+
 
 Route::get('municipality-admin/scheduling', function () {
     $trucks = Truck::all();
     $locations = Location::all();
     return view('municipality-admin.scheduling', compact('locations', 'trucks'));
 })->name('municipality.scheduling');
+
+Route::get('/attendance/export-pdf', [AttendanceController::class, 'exportPdf'])->name('attendance.export.pdf');
+Route::get('/attendance/export/csv', [AttendanceController::class, 'exportCsv'])->name('attendance.export.csv');
 
 Route::post('/trucks', [TruckController::class, 'store'])->name('trucks.store');
 Route::post('/pickup', [PickupController::class, 'store'])->name('pickup.store');
@@ -673,6 +692,7 @@ Route::post('/update-truck-pickups', [TruckController::class, 'updatePickups']);
 
 Route::get('/truck-pickups', [TruckController::class, 'getTruckPickups']);
 Route::get('/pickup-locations', [PickupController::class, 'getPickupLocations'])->name('pickup.locations');
+Route::put('/trucks/{truck}', [TruckController::class, 'update'])->name('trucks.update');
 
 
 Route::post('/api/get-route', [TruckController::class, 'getRoute']);

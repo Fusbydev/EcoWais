@@ -48,16 +48,16 @@
 
     <!-- Navigation -->
     <nav class="nav flex-column gap-1">
-
+        <a class="nav-link {{ request()->routeIs('municipality.admin') ? 'active' : '' }}"
+           href="{{ route('municipality.admin') }}">
+            Dashboard
+        </a>    
         <a class="nav-link {{ request()->routeIs('municipality.scheduling') ? 'active' : '' }}"
            href="{{ route('municipality.scheduling') }}">
             Barangay Scheduling
         </a>
 
-        <a class="nav-link {{ request()->routeIs('municipality.admin') ? 'active' : '' }}"
-           href="{{ route('municipality.admin') }}">
-            Admin
-        </a>
+        
 
         <a class="nav-link {{ request()->routeIs('map.view') ? 'active' : '' }}"
            href="{{ route('map.view') }}">

@@ -14,11 +14,10 @@ class AuthController extends Controller
 {
     public function login(Request $request)
 {
-    // Validate input
+    // Validate input (role removed)
     $request->validate([
         'email' => 'required|email',
         'password' => 'required',
-        'role' => 'required'
     ]);
 
     // Find user by email
@@ -38,13 +37,11 @@ class AuthController extends Controller
         return back()->withErrors(['password' => 'Invalid password']);
     }
 
-    // Check role
-    if ($user->role !== $request->role) {
-        return back()->withErrors(['role' => 'Role does not match']);
-    }
+    // Role is now automatic — remove request role matching
+    $role = $user->role;
 
-    // ✅ Barangay admin must be assigned to a location
-    if ($user->role === 'barangay_admin') {
+    // Barangay admin must be assigned to a location
+    if ($role === 'barangay_admin') {
         $isAssigned = \App\Models\Location::where('adminId', $user->id)->exists();
 
         if (!$isAssigned) {
@@ -62,12 +59,12 @@ class AuthController extends Controller
     // Login success - store session
     session([
         'user_id' => $user->id,
-        'user_role' => $user->role,
+        'user_role' => $role,
         'user_name' => $user->name,
     ]);
 
     // Redirect based on role
-    switch ($user->role) {
+    switch ($role) {
         case 'barangay_admin':
             return redirect()->route('barangay.admin.homepage');
 
@@ -81,6 +78,7 @@ class AuthController extends Controller
             return redirect('/');
     }
 }
+
 
 
 

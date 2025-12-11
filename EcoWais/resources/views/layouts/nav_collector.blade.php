@@ -46,19 +46,47 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="nav flex-column gap-1">
+<!-- Navigation -->
+<nav class="nav flex-column gap-2 mb-3">
 
-        <a class="nav-link {{ request()->routeIs('barangay.waste.collector.homepage') ? 'active' : '' }}"
-   href="{{ route('barangay.waste.collector.homepage') }}">
-    <i class="bi bi-truck me-1"></i> Driver Interface
-</a>
+    <a class="nav-link {{ request()->routeIs('barangay.waste.collector.homepage') ? 'active' : '' }}"
+       href="{{ route('barangay.waste.collector.homepage') }}">
+        <i class="bi bi-truck me-1"></i> Driver Interface
+    </a>
 
-<a class="nav-link {{ request()->routeIs('map.view') ? 'active' : '' }}"
-   href="{{ route('map.view') }}">
-    <i class="bi bi-map me-1"></i> Map View
-</a>
+    <a class="nav-link {{ request()->routeIs('map.view') ? 'active' : '' }}"
+       href="{{ route('map.view') }}">
+        <i class="bi bi-map me-1"></i> Map View
+    </a>
 
-    </nav>
+    <!-- Enable Tracking Toggle -->
+    <form action="{{ route('update-tracking') }}" method="POST">
+    @csrf
+    <input type="hidden" name="user_id" value="{{ session('user_id') }}">
+
+    <div class="d-flex align-items-center mt-3 px-3">
+        <label class="form-check-label me-2 fw-semibold" for="enableTracking">Enable Tracking</label>
+        <div class="form-check form-switch">
+            <input 
+    class="form-check-input" 
+    type="checkbox" 
+    id="enableTracking" 
+    name="tracking" 
+    value="1" 
+    onchange="this.form.submit()"
+    @if($driver && $driver->truck && $driver->truck->tracking === 'True') checked @endif
+>
+
+
+        </div>
+    </div>
+</form>
+
+
+
+
+</nav>
+
 
     <!-- User Section -->
     <div class="user-section">

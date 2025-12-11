@@ -34,27 +34,28 @@ class TruckController extends Controller
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
-    {
-        // Validate input
-        $validated = $request->validate([
-            'truck_id' => 'required|string|unique:trucks,truck_id',
-            'driver_id' => 'required|exists:drivers,id',
-            'initial_location' => 'required|string',
-            'initial_fuel' => 'required|integer|min:0|max:100',
-        ]);
+{
+    // Validate input
+    $validated = $request->validate([
+        'truck_id' => 'required|string|unique:trucks,truck_id',
+        'driver_id' => 'nullable|exists:drivers,id', // <-- now optional
+        'initial_location' => 'required|string',
+        'initial_fuel' => 'required|integer|min:0|max:100',
+    ]);
 
-        // Create truck
-        Truck::create([
-            'truck_id' => $validated['truck_id'],
-            'driver_id' => $validated['driver_id'],
-            'initial_location' => $validated['initial_location'],
-            'initial_fuel' => $validated['initial_fuel'],
-            'status' => 'idle', // default status
-        ]);
+    // Create truck
+    Truck::create([
+        'truck_id' => $validated['truck_id'],
+        'driver_id' => $validated['driver_id'] ?? null, // <-- default to null if not provided
+        'initial_location' => $validated['initial_location'],
+        'initial_fuel' => $validated['initial_fuel'],
+        'status' => 'idle', // default status
+    ]);
 
-        // Redirect back with success message
-        return redirect()->back()->with('truckSuccess', "Truck '{$validated['truck_id']}' added successfully!");
-    }
+    // Redirect back with success message
+    return redirect()->back()->with('truckSuccess', "Truck '{$validated['truck_id']}' added successfully!");
+}
+
 
     public function updatePickups(Request $request)
     {
@@ -80,8 +81,8 @@ public function getTruckPickups()
         $user = \App\Models\User::find($userId);
         $userRole = $user->role ?? null; // e.g., 'admin' or 'barangay_waste_collector'
 
-        // Base query
-        $trucksQuery = Truck::with('driver.user');
+        // Base query: only trucks with tracking = 'True'
+        $trucksQuery = Truck::with('driver.user')->where('tracking', 'True');
 
         // If user is a waste collector, only get their assigned truck(s)
         if ($userRole === 'barangay_waste_collector') {
@@ -108,12 +109,12 @@ public function getTruckPickups()
             }
 
             return [
-                'id'            => $truck->id,
-                'truck_id'      => $truck->truck_id,
-                'driver_name'   => $truck->driver->user->name ?? null,
-                'user_id'       => $truck->driver->user_id ?? null,
-                'initial_coords'=> $initial_coords ?? null,
-                'pickups'       => $pickups
+                'id'             => $truck->id,
+                'truck_id'       => $truck->truck_id,
+                'driver_name'    => $truck->driver->user->name ?? null,
+                'user_id'        => $truck->driver->user_id ?? null,
+                'initial_coords' => $initial_coords ?? null,
+                'pickups'        => $pickups
             ];
         });
 
@@ -125,6 +126,7 @@ public function getTruckPickups()
         ], 500);
     }
 }
+
 
 
 
@@ -220,7 +222,26 @@ public function updateDriverStatus(Request $request)
 }
 
 
+public function updateTracking(Request $request)
+{
+    $request->validate([
+        'user_id' => 'required|exists:drivers,user_id',
+        'tracking' => 'nullable', // checkbox unchecked will be null
+    ]);
 
+    // Get driver by user_id
+    $driver = \App\Models\Driver::where('user_id', $request->user_id)->firstOrFail();
+
+    // Determine tracking value: string 'true' or 'false'
+    $trackingValue = $request->has('tracking') ? 'true' : 'false';
+
+    // Update all trucks assigned to this driver
+    \App\Models\Truck::where('driver_id', $driver->id)->update([
+        'tracking' => $trackingValue
+    ]);
+
+    return redirect()->back()->with('success', 'Tracking updated!');
+}
 
 
     /**
@@ -244,7 +265,20 @@ public function updateDriverStatus(Request $request)
      */
     public function update(Request $request, Truck $truck)
     {
-        //
+        // Validate input
+        $validated = $request->validate([
+            'truck_id' => 'required|string|max:255',
+            'driver_id' => 'nullable|exists:drivers,id',
+            'initial_location' => 'nullable|string|max:255',
+            'status' => 'required|in:active,inactive,maintenance',
+            'initial_fuel' => 'required|numeric|min:0|max:100',
+        ]);
+
+        // Update the truck
+        $truck->update($validated);
+
+        // Redirect back with success message
+        return redirect()->back()->with('success', 'Truck updated successfully!');
     }
 
     /**

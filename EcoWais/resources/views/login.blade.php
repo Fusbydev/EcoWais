@@ -75,6 +75,27 @@
         a {
             text-decoration: none;
         }
+
+        /* Completely remove default password reveal buttons in Chrome, Edge, Safari */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none !important;
+}
+
+input[type="password"]::-webkit-textfield-decoration-container {
+    visibility: hidden !important;
+}
+
+input[type="password"]::-webkit-credentials-auto-fill-button {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+input[type="password"]::-webkit-inner-spin-button,
+input[type="password"]::-webkit-outer-spin-button {
+    display: none !important;
+}
+
     </style>
 </head>
 <body>
@@ -84,7 +105,6 @@
         <div class="login-header mb-4">
     <img src="{{ asset('assets/log.png') }}" alt="EcoWais Logo" class="mb-2" style="width: 100px; height: 100px;">
     <h2>Login to EcoWais</h2>
-    <p>Select your role to continue</p>
 </div>
 
 
@@ -101,32 +121,39 @@
 
         <form id="login-form" action="{{ route('login') }}" method="POST">
             @csrf
-
-            <div class="mb-3 text-start">
-                <label class="fw-semibold">User Role</label>
-                <select name="role" required class="form-select">
-                    <option value="">Select Role</option>
-                    <option value="barangay_admin">Barangay Admin</option>
-                    <option value="barangay_waste_collector">Waste Collection Driver</option>
-                    <option value="municipality_administrator">Municipality Administrator</option>
-                </select>
-            </div>
-
             <div class="mb-3 text-start">
                 <label class="fw-semibold">Email</label>
                 <div class="input-group">
                     <span class="input-group-text bg-light"><i class="bi bi-envelope-fill"></i></span>
-                    <input type="email" name="email" required placeholder="Enter your email" class="form-control">
+                    <input type="email" name="email" required class="form-control">
                 </div>
             </div>
 
             <div class="mb-3 text-start">
-                <label class="fw-semibold">Password</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-light"><i class="bi bi-lock-fill"></i></span>
-                    <input type="password" name="password" required placeholder="Enter your password" class="form-control">
-                </div>
-            </div>
+    <label class="fw-semibold">Password</label>
+
+    <div class="input-group" id="passwordToggle">
+        <span class="input-group-text bg-light">
+            <i class="bi bi-lock-fill"></i>
+        </span>
+
+        <input 
+            type="password" 
+            name="password"
+            id="passwordInput"
+            class="form-control"
+            required
+        >
+
+        <!-- Your manual eye toggle button -->
+        <button class="btn btn-outline-secondary" type="button"
+                data-bs-toggle="password" data-bs-target="#passwordInput">
+            <i class="bi bi-eye-slash"></i>
+        </button>
+    </div>
+</div>
+
+
 
             <div class="mb-3 text-end">
                 <a href="{{ route('password.request') }}" class="text-decoration-none small">Forgot your password?</a>
@@ -139,6 +166,24 @@
 
         <p class="mt-3 text-muted small">© 2025 EcoWais. All rights reserved.</p>
     </div>
+<script>
+document.querySelectorAll('[data-bs-toggle="password"]').forEach(function (toggle) {
+    toggle.addEventListener('click', function () {
+        const target = document.querySelector(this.dataset.bsTarget);
+        const icon = this.querySelector('i');
+
+        if (target.type === "password") {
+            target.type = "text";
+            icon.classList.remove("bi-eye-slash");
+            icon.classList.add("bi-eye");
+        } else {
+            target.type = "password";
+            icon.classList.remove("bi-eye");
+            icon.classList.add("bi-eye-slash");
+        }
+    });
+});
+</script>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

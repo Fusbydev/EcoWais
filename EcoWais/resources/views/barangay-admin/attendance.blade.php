@@ -211,8 +211,9 @@
                                 <tbody id="trucks-tbody">
                                     @forelse($truckData as $truck)
                                         @php
-                                            $hasTodayPickup = collect($truck['sessionPickups'])->contains($today);
+                                            $hasTodayPickup = ($truck['pickup_date'] <= $today);
                                         @endphp
+
                                         @if($hasTodayPickup)
                                         <tr>
                                             <td class="fw-medium">{{ $truck['name'] }}</td>
@@ -223,7 +224,7 @@
                                                         @csrf
                                                         <input type="hidden" name="user_id" value="{{ $truck['driver_user_id'] }}">
                                                         <input type="hidden" name="location_id" value="{{ $selectedLocation->id }}">
-                                                        <input type="hidden" name="session_pickup" value="{{ $today }}">
+                                                        <input type="hidden" name="session_pickup" value="{{ $truck['pickup_date'] }}">
                                                         <label class="btn btn-sm btn-success d-inline-flex align-items-center" style="gap:4px; cursor:pointer;">
                                                             <input type="checkbox" name="TimeIn" onchange="this.form.submit();" class="form-check-input m-0" />
                                                             <span class="d-none d-sm-inline">Time In</span>
@@ -240,6 +241,7 @@
                                                         @csrf
                                                         <input type="hidden" name="user_id" value="{{ $truck['driver_user_id'] }}">
                                                         <input type="hidden" name="location_id" value="{{ $selectedLocation->id }}">
+                                                        <input type="hidden" name="session_pickup" value="{{ $truck['pickup_date'] }}">
                                                         <button type="submit" class="btn btn-sm btn-warning">
                                                             <span class="d-none d-sm-inline">Time Out</span>
                                                             <i class="bi bi-clock-history d-sm-none"></i>
@@ -249,6 +251,7 @@
                                                     <span class="text-warning fw-medium small">{{ $truck['time_out'] }}</span>
                                                 @endif
                                             </td>
+
                                             <td class="text-muted d-none d-md-table-cell">{{ $truck['hours_worked'] }}</td>
                                             <td>
                                                 @if($truck['status'] === 'Present')
