@@ -104,9 +104,9 @@
 <div class="sidebar" id="sidebar">
     <!-- Logo -->
     <div class="d-flex align-items-center mb-4">
-        <span class="me-2 fs-3">🗑️</span>
-        <span class="fw-bold fs-4">EcoWais</span>
-    </div>
+    <img src="/assets/logo (1).png" alt="EcoWais Logo"
+         style="width: 200px; height: 80px;" class="me-2">
+</div>
 
     <!-- Navigation -->
     <nav class="nav flex-column gap-1">
@@ -122,7 +122,7 @@
 
         <a class="nav-link {{ request()->routeIs('barangay.admin.attendance') ? 'active' : '' }}"
            href="{{ route('barangay.admin.attendance') }}">
-           <i class="bi bi-list-check"></i>  Attendannce
+           <i class="bi bi-list-check"></i>  Attendance
         </a>
     </nav>
 

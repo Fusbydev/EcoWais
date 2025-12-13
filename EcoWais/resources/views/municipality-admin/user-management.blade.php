@@ -4,7 +4,7 @@
 
 <div class="container mt-4">
 
-    <h2 class="ext-center fw-bold text-white">User Management</h2>
+    <h2 class="text-center fw-bold text-white">User Management</h2>
 
     <!-- Actions -->
     <div class="d-flex justify-content-end mb-3">
@@ -16,7 +16,7 @@
     <!-- User Table Card -->
     <div class="card shadow-sm border-0">
         
-        {{-- Success Message --}}
+        {{-- Success Message (only for session success, not validation errors) --}}
         @if(session('success'))
             <div class="alert alert-success alert-dismissible fade show m-3" role="alert">
                 {{ session('success') }}
@@ -24,23 +24,11 @@
             </div>
         @endif
 
-        {{-- Error Message --}}
-        @if(session('error'))
+        {{-- Error Message (only for session errors, not validation errors) --}}
+        @if(session('error') && !$errors->any())
             <div class="alert alert-danger alert-dismissible fade show m-3" role="alert">
                 {{ session('error') }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        @endif
-
-        {{-- Validation Errors --}}
-        @if($errors->any())
-            <div class="alert alert-danger m-3">
-                <strong>There were some problems:</strong>
-                <ul class="mb-0 mt-2">
-                    @foreach ($errors->all() as $err)
-                        <li>{{ $err }}</li>
-                    @endforeach
-                </ul>
             </div>
         @endif
 
@@ -68,8 +56,6 @@
         </div>
     </div>
 </div>
-
-
 
                 <table class="table table-striped table-hover align-middle mb-0">
                     <thead class="table-dark text-center">
@@ -122,7 +108,6 @@
 
     </div> <!-- End Card -->
 
-    <!-- ADD USER MODAL -->
 <!-- ADD USER MODAL -->
 <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -136,18 +121,28 @@
 
             <!-- Modal Body -->
             <div class="modal-body">
-                <form action="{{ route('users.store') }}" method="POST">
+                @if ($errors->any())
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                <form action="{{ route('users.store') }}" method="POST" id="addUserForm">
                     @csrf
 
                     <!-- First Row: Name & Email -->
                     <div class="row g-3 mb-2">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Full Name</label>
-                            <input type="text" name="name" class="form-control" placeholder="Enter full name" required>
+                            <input type="text" name="name" class="form-control" placeholder="Enter full name" value="{{ old('name') }}" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Email Address</label>
-                            <input type="email" name="email" class="form-control" placeholder="Enter email" required>
+                            <input type="email" name="email" class="form-control" placeholder="Enter email" value="{{ old('email') }}" required>
                         </div>
                     </div>
 
@@ -163,6 +158,7 @@
                                 placeholder="Enter phone number"
                                 minlength="11"
                                 maxlength="11"
+                                value="{{ old('phone') }}"
                                 required
                             >
                             <div class="text-danger small mt-1 d-none" id="create-phone-error">
@@ -172,8 +168,8 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Role</label>
                             <select name="role" class="form-select" id="role-select" required>
-                                <option value="barangay_waste_collector">Driver</option>
-                                <option value="barangay_admin">Barangay Admin</option>
+                                <option value="barangay_waste_collector" {{ old('role') == 'barangay_waste_collector' ? 'selected' : '' }}>Driver</option>
+                                <option value="barangay_admin" {{ old('role') == 'barangay_admin' ? 'selected' : '' }}>Barangay Admin</option>
                             </select>
                         </div>
                     </div>
@@ -182,9 +178,11 @@
                     <div class="row g-3 mb-2" id="location-container">
                         <div class="col-md-12">
                             <label class="form-label fw-semibold">Location</label>
-                            <select name="location_id" class="form-select" id="location-select" required>
+                            <select name="location_id" class="form-select" id="location-select">
                                 @foreach ($locations as $location)
-                                    <option value="{{ $location->id }}">{{ $location->location }}</option>
+                                    <option value="{{ $location->id }}" {{ old('location_id') == $location->id ? 'selected' : '' }}>
+                                        {{ $location->location }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
@@ -194,18 +192,19 @@
                     <div class="row g-3 mb-2 d-none" id="driver-location-container">
                         <div class="col-md-12">
                             <label class="form-label fw-semibold">Assign Truck / Initial Location</label>
-                            <p class="text-muted">Locations with no assigned driver will be shown</p></p>
+                            <p class="text-muted">Locations with no assigned driver will be shown</p>
                             <select name="truck_id" class="form-select" id="driver-location-select">
                                 <option value="">Select truck/location</option>
                                 @foreach ($trucks as $truck)
-                                    @if (!$truck->driver_id) <!-- Only trucks without driver assigned -->
-                                        <option value="{{ $truck->id }}">{{ $truck->initial_location }}</option>
+                                    @if (!$truck->driver_id)
+                                        <option value="{{ $truck->id }}" {{ old('truck_id') == $truck->id ? 'selected' : '' }}>
+                                            {{ $truck->initial_location }}
+                                        </option>
                                     @endif
                                 @endforeach
                             </select>
                         </div>
                     </div>
-
 
                     <!-- Fourth Row: Password & Confirm Password -->
                     <div class="row g-3 mb-2">
@@ -231,7 +230,6 @@
         </div>
     </div>
 </div>
-
 
     <!-- EDIT USER MODALS -->
     @foreach($users as $user)
@@ -319,13 +317,13 @@ document.addEventListener("DOMContentLoaded", function () {
     function toggleRoleDropdowns() {
         if (roleSelect.value === 'barangay_admin') {
             adminLocationContainer.classList.remove('d-none');
-            adminLocationContainer.querySelector('select').setAttribute('required', true);
+            adminLocationContainer.querySelector('select').setAttribute('required', 'required');
 
             driverLocationContainer.classList.add('d-none');
             driverLocationContainer.querySelector('select').removeAttribute('required');
         } else if (roleSelect.value === 'barangay_waste_collector') {
             driverLocationContainer.classList.remove('d-none');
-            driverLocationContainer.querySelector('select').setAttribute('required', true);
+            driverLocationContainer.querySelector('select').setAttribute('required', 'required');
 
             adminLocationContainer.classList.add('d-none');
             adminLocationContainer.querySelector('select').removeAttribute('required');
@@ -343,7 +341,6 @@ document.addEventListener("DOMContentLoaded", function () {
     // Run once on page load
     toggleRoleDropdowns();
 
-
     // SEARCH FILTER
     const searchInput = document.getElementById("userSearch");
     const tableRows = document.querySelectorAll("table tbody tr");
@@ -356,7 +353,6 @@ document.addEventListener("DOMContentLoaded", function () {
             row.style.display = nameCell.includes(query) ? "" : "none";
         });
     });
-
 
     // PHONE VALIDATION
     function validatePhoneField(input, errorDiv) {
@@ -386,5 +382,13 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 
+@if ($errors->any())
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var addUserModal = new bootstrap.Modal(document.getElementById('addUserModal'));
+        addUserModal.show();
+    });
+</script>
+@endif
 
 @endsection

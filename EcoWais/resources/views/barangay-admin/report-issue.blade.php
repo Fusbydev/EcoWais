@@ -189,9 +189,9 @@
                 <!-- Location -->
                 <div class="col-12 col-md-6">
                     <label class="form-label text-uppercase small fw-bold mb-2" style="color: #f59e0b; letter-spacing: 0.5px;">
-                        <i class="bi bi-geo-alt me-1"></i>Location (Street/Area) <span class="text-danger">*</span>
+                        <i class="bi bi-geo-alt me-1"></i>Location<span class="text-danger">*</span>
                     </label>
-                    <input type="text" id="issue-location" name="location" class="form-control border-2 shadow-sm" placeholder="Enter street or area" required style="border-color: #f59e0b30;">
+                    <input type="text" id="issue-location" name="location" class="form-control border-2 shadow-sm" placeholder="Enter street or area" required style="border-color: #f59e0b30;" value="{{ $selectedLocation->location }}" readonly>
                 </div>
 
                 <!-- Date & Time -->
@@ -199,34 +199,9 @@
                     <label class="form-label text-uppercase small fw-bold mb-2" style="color: #f59e0b; letter-spacing: 0.5px;">
                         <i class="bi bi-calendar-event me-1"></i>Date & Time <span class="text-danger">*</span>
                     </label>
-                    <input type="datetime-local" id="issue-datetime" name="incident_datetime" class="form-control border-2 shadow-sm" required style="border-color: #f59e0b30;">
+                    <input type="datetime-local" id="issue-datetime" name="incident_datetime" class="form-control border-2 shadow-sm" required style="border-color: #f59e0b30;" readonly>
                 </div>
 
-                <!-- Priority Level -->
-                <div class="col-12">
-                    <label class="form-label text-uppercase small fw-bold mb-3" style="color: #f59e0b; letter-spacing: 0.5px;">
-                        <i class="bi bi-flag-fill me-1"></i>Priority Level <span class="text-danger">*</span>
-                    </label>
-                    <div class="btn-group w-100 shadow-sm" role="group">
-                        <input type="radio" class="btn-check" name="priority" id="priority-low" value="low" required>
-                        <label class="btn btn-outline-success py-2 fw-semibold" for="priority-low">
-                            <i class="bi bi-check-circle-fill d-block mb-1"></i>
-                            <small>Low</small>
-                        </label>
-
-                        <input type="radio" class="btn-check" name="priority" id="priority-medium" value="medium" checked>
-                        <label class="btn btn-outline-warning py-2 fw-semibold" for="priority-medium">
-                            <i class="bi bi-exclamation-circle-fill d-block mb-1"></i>
-                            <small>Medium</small>
-                        </label>
-
-                        <input type="radio" class="btn-check" name="priority" id="priority-high" value="high">
-                        <label class="btn btn-outline-danger py-2 fw-semibold" for="priority-high">
-                            <i class="bi bi-x-circle-fill d-block mb-1"></i>
-                            <small>High</small>
-                        </label>
-                    </div>
-                </div>
 
                 <!-- Description -->
                 <div class="col-12">
@@ -293,7 +268,7 @@
                                         <th class="fw-semibold d-none d-md-table-cell">Date</th>
                                         <th class="fw-semibold">Issue Type</th>
                                         <th class="fw-semibold d-none d-lg-table-cell">Location</th>
-                                        <th class="fw-semibold">Priority</th>
+                                
                                         <th class="fw-semibold d-none d-sm-table-cell">Status</th>
                                         <th class="fw-semibold">Action</th>
                                     </tr>
@@ -319,15 +294,7 @@
                                                 {{ $issueDisplay }}
                                             </td>
                                             <td class="d-none d-lg-table-cell small">{{ $report->location }}</td>
-                                            <td>
-                                                @if(strtolower($report->priority) === 'high')
-                                                    <span class="badge bg-danger">High</span>
-                                                @elseif(strtolower($report->priority) === 'medium')
-                                                    <span class="badge bg-warning">Medium</span>
-                                                @else
-                                                    <span class="badge bg-success">Low</span>
-                                                @endif
-                                            </td>
+                                           
                                             <td class="d-none d-sm-table-cell"><span class="badge bg-info">Pending</span></td>
                                             <td>
                                                 <button type="button" class="btn btn-sm btn-outline-primary" 
@@ -376,16 +343,6 @@
                                 <div class="mb-3">
                                     <small class="text-muted d-block">Location</small>
                                     <p class="mb-0 fw-medium">{{ $report->location }}</p>
-                                </div>
-                                <div class="mb-3">
-                                    <small class="text-muted d-block">Priority</small>
-                                    @if(strtolower($report->priority) === 'high')
-                                        <span class="badge bg-danger">{{ ucfirst($report->priority) }}</span>
-                                    @elseif(strtolower($report->priority) === 'medium')
-                                        <span class="badge bg-warning text-dark">{{ ucfirst($report->priority) }}</span>
-                                    @else
-                                        <span class="badge bg-success">{{ ucfirst($report->priority) }}</span>
-                                    @endif
                                 </div>
                                 <div class="mb-3">
                                     <small class="text-muted d-block">Status</small>
@@ -463,6 +420,26 @@ document.addEventListener("DOMContentLoaded", function() {
             });
         })
         .catch(error => console.error('Error fetching issues:', error));
+
+
+        const datetimeInput = document.getElementById('issue-datetime');
+    
+    if (datetimeInput) {
+        // Get current date and time
+        const now = new Date();
+        
+        // Format to YYYY-MM-DDTHH:MM (required format for datetime-local input)
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        
+        const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        
+        // Set the value
+        datetimeInput.value = formattedDateTime;
+    }
 });
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -491,6 +468,7 @@ document.addEventListener("DOMContentLoaded", function () {
     otherInput.placeholder = "Specify the issue";
     otherInput.style.display = "none";
     otherInput.classList.add("form-control");
+    otherInput.classList.add("mt-2");
     issueType.parentNode.appendChild(otherInput);
 
     issueType.addEventListener("change", function () {

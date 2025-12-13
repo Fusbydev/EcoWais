@@ -33,71 +33,87 @@
 
         <!-- Today's Routes Card -->
         <div class="card mb-4 shadow-sm border-0">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">
-                    <i class="bi bi-truck-front-fill me-2"></i>
-                    Today's Routes - <span id="driver-name">{{ session('user_name') }}</span>
-                </h5>
+            <div class="card mb-4 shadow-sm border-0">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-truck-front-fill me-2"></i>
+            Today's Routes - <span id="driver-name">{{ session('user_name') }}</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        @if($todayPickups->isEmpty())
+            <div class="alert alert-warning mb-0">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>No pickups scheduled for today.</strong>
             </div>
-            <div class="card-body">
-                <!-- Progress Bar Section -->
-                <div class="mb-4">
-    @php
-        $totalLocations = $totalCompleted + $totalPending;
-        $progressPercentage = $totalLocations > 0
-            ? round(($totalCompleted / $totalLocations) * 100)
-            : 0;
-    @endphp
+        @else
+            @php
+                $totalLocations = $totalCompleted + $totalPending;
+                $progressPercentage = $totalLocations > 0
+                    ? round(($totalCompleted / $totalLocations) * 100)
+                    : 0;
+            @endphp
 
-    <div class="d-flex justify-content-between align-items-center mb-2">
-        <div>
-            <h6 class="mb-0 fw-semibold">Route Progress</h6>
-            <small class="text-muted">{{ $totalCompleted }} of {{ $totalLocations }} locations completed</small>
-        </div>
-        <div class="text-end">
-            <span class="badge bg-primary fs-6">{{ $progressPercentage }}%</span>
-        </div>
-    </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <h6 class="mb-0 fw-semibold">Route Progress</h6>
+                    <small class="text-muted">{{ $totalCompleted }} of {{ $totalLocations }} locations completed</small>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-primary fs-6">{{ $progressPercentage }}%</span>
+                </div>
+            </div>
 
-    <div class="progress" style="height: 30px;">
-        <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
-             role="progressbar"
-             style="width: {{ $progressPercentage }}%;"
-             aria-valuenow="{{ $progressPercentage }}"
-             aria-valuemin="0"
-             aria-valuemax="100">
-            @if($progressPercentage > 10)
-                <span class="fw-semibold">{{ $progressPercentage }}% Complete</span>
+            <div class="progress" style="height: 30px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                    role="progressbar"
+                    style="width: {{ $progressPercentage }}%;"
+                    aria-valuenow="{{ $progressPercentage }}"
+                    aria-valuemin="0"
+                    aria-valuemax="100">
+                    @if($progressPercentage > 10)
+                        <span class="fw-semibold">{{ $progressPercentage }}% Complete</span>
+                    @endif
+                </div>
+            </div>
+
+            @if($progressPercentage === 100)
+                <div class="alert alert-success mt-3 mb-0">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <strong>All routes completed!</strong> Great job today!
+                </div>
+            @elseif($progressPercentage > 0)
+                <div class="alert alert-info mt-3 mb-0">
+                    <i class="bi bi-truck me-2"></i>
+                    <strong>Status:</strong> On Route | Keep up the good work!
+                </div>
+            @else
+                <div class="alert alert-warning mt-3 mb-0">
+                    <i class="bi bi-clock-history me-2"></i>
+                    <strong>Ready to start:</strong> No locations completed yet
+                </div>
             @endif
-        </div>
+        @endif
     </div>
 
-    @if($progressPercentage === 100)
-        <div class="alert alert-success mt-3 mb-0">
-            <i class="bi bi-check-circle-fill me-2"></i>
-            <strong>All routes completed!</strong> Great job today!
-        </div>
-    @elseif($progressPercentage > 0)
-        <div class="alert alert-info mt-3 mb-0">
-            <i class="bi bi-truck me-2"></i>
-            <strong>Status:</strong> On Route | Keep up the good work!
-        </div>
-    @else
-        <div class="alert alert-warning mt-3 mb-0">
-            <i class="bi bi-clock-history me-2"></i>
-            <strong>Ready to start:</strong> No locations completed yet
-        </div>
-    @endif
-</div>
 
 
-                <p class="mb-3"><strong>Logged in Driver ID:</strong> {{ session('user_id') }}</p>
+                
+                    <p class="mb-3"><strong>Logged in Driver ID:</strong> {{ session('user_id') }}</p>
+
 
                 <div class="table-responsive">
+                    <div class="mb-3 d-flex justify-content-end">
+                        <div class="input-group" style="max-width: 260px;">
+                            <span class="input-group-text">Filter Date</span>
+                            <input type="date" id="filter-date" class="form-control" value="{{ now()->toDateString() }}">
+                        </div>
+                    </div>
+
                     <table class="table align-middle table-hover">
                         <thead class="table-dark text-center">
                             <tr>
-                                <th class="text-dark">🕒 Time</th>
+                                <th class="text-dark">🕒 Date</th>
                                 <th class="text-dark">📍 Exact Location</th>
                                 <th class="text-dark">📊 Status</th>
                                 <th class="text-dark">⚙️ Action</th>
@@ -114,7 +130,10 @@
                                             $rowId = $pickup->id . '-' . $index;
                                         @endphp
                                         <tr>
-                                            <td class="text-center">{{ $pickup->time ?? 'N/A' }}</td>
+                                            <td class="text-center">
+                                                {{ \Carbon\Carbon::parse($pickup->pickup_date)->format('F d, Y') }}
+                                            </td>
+
                                             <td>
                                                 <span id="short-address-{{ $rowId }}">{{ $shortAddress }}</span>
                                                 @if($isTruncated)
@@ -149,37 +168,74 @@
                         </tbody>
                     </table>
                 </div>
+
+
             </div>
         </div>
 
-        <!-- Status Update Card -->
-        <div class="card mb-4 shadow-sm border-0">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Status Update</h5>
+<div class="card mb-4 border-0" style="box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);">
+    <div class="card-header bg-white border-bottom py-4" style="border-bottom-color: #e2e8f0 !important;">
+        <div class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+                <div class="rounded-2 p-2 me-3" style="background-color: #f1f5f9;">
+                    <i class="bi bi-info-circle fs-5" style="color: #475569;"></i>
+                </div>
+                <h5 class="mb-0 fw-semibold" style="color: #1e293b;">Status Update</h5>
             </div>
-            <div class="card-body">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-4">
-                        <label>Status</label>
-                        <select id="driver-status-select" class="form-select">
-                            <option value="on-route">On Route</option>
-                            <option value="at-pickup">At Pickup Location</option>
-                            <option value="break">On Break</option>
-                            <option value="returning">Returning to Base</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label>Pickup Location</label>
-                        <select id="pickup-location-select" class="form-select" style="display:none;">
-                            <option disabled selected>Loading pickup locations...</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <button type="button" class="btn btn-primary w-100" onclick="updateDriverStatus()">Update Status</button>
-                    </div>
+            <span class="badge rounded-2 px-3 py-2" style="background-color: #f1f5f9; color: #64748b; font-weight: 500; font-size: 0.875rem;">
+                Driver Dashboard
+            </span>
+        </div>
+    </div>
+    
+    <div class="card-body p-4">
+        <form action="{{ route('driver.update.status') }}" method="POST">
+            @csrf
+            
+            @if(session('statusSuccess'))
+                <div class="alert alert-dismissible fade show mb-4" role="alert" style="background-color: #dcfce7; border: 1px solid #bbf7d0; color: #166534;">
+                    <i class="bi bi-check-circle-fill me-2"></i>{{ session('statusSuccess') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+
+            @if(session('statusError'))
+                <div class="alert alert-dismissible fade show mb-4" role="alert" style="background-color: #fee2e2; border: 1px solid #fecaca; color: #991b1b;">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ session('statusError') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+            
+            <div class="row g-4">
+                <div class="col-12 col-md-7">
+                    <label for="driver-status-select" class="form-label text-uppercase small fw-medium mb-3" style="color: #64748b; letter-spacing: 0.05em; font-size: 0.75rem;">
+                        Select Current Status
+                    </label>
+                    <select id="driver-status-select" name="status" class="form-select py-3" required style="border: 1px solid #e2e8f0; border-radius: 0.5rem;">
+                        <option value="on-route">🛣️ On Route</option>
+                        <option value="break">☕ On Break</option>
+                        <option value="returning">🏠 Returning to Base</option>
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-5 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100 py-3" style="background-color: #2563eb; border: none; border-radius: 0.5rem; font-weight: 500;">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Update Status
+                    </button>
                 </div>
             </div>
-        </div>
+            
+            <div class="mt-4 p-3 rounded-2" style="background-color: #f8fafc; border-left: 3px solid #2563eb;">
+                <small style="color: #64748b;">
+                    <i class="bi bi-info-circle me-2" style="color: #2563eb;"></i>
+                    Select your current status and click <strong style="color: #1e293b;">Update Status</strong> to notify the system of your location.
+                </small>
+            </div>
+        </form>
+    </div>
+</div>
+</div>
+
 
         <!-- Add Waste Collection Entry -->
         <div class="card mb-4 shadow-sm border-0">

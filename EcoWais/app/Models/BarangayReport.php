@@ -14,7 +14,6 @@ class BarangayReport extends Model
         'location',
         'adminId',
         'incident_datetime',
-        'priority',
         'description',
         'photo_path',
         'status',

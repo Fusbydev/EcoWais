@@ -16,20 +16,6 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         @endif
-
-        @if(session('success'))
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle-fill me-2"></i>{{ session('success') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-            <div class="alert alert-info alert-dismissible fade show" role="alert">
-                <strong>Auto-generated login credentials:</strong><br>
-                Email: <strong>{{ session('generated_email') }}</strong><br>
-                Password: <strong>{{ session('generated_password') }}</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        @endif
-
         <!-- Quick Stats Overview -->
         <div class="row g-4 mb-4">
             <div class="col-md-6 col-xl-3">
@@ -96,6 +82,15 @@
             </div>
         </div>
 
+                    <div class="d-flex justify-content-end">
+                        <button id="downloadReports" class="btn btn-success d-flex align-items-center mb-3"
+                            style="border-width: 2px; border-radius: 0.5rem;">
+                            <i class="bi bi-file-earmark-text-fill me-2"></i>
+                            <span class="fw-semibold">Download PDF & Excel</span>
+                        </button>
+                    </div>
+
+
         <!-- Waste Collection Analytics -->
         <div class="card shadow-sm border-0 mb-4">
     <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
@@ -136,25 +131,14 @@
                         <i class="bi bi-pie-chart-fill me-2"></i>Waste by Type
                     </h6>
                 </div>
-                <div class="card-body p-3" style="height: calc(100% - 50px);">
+                <div class="card-body d-flex justify-content-center align-items-center">
                     <canvas id="wasteTypeChart" style="height: 100%; width: 100%;"></canvas>
                 </div>
+
             </div>
         </div>
     </div>
 </div>
-
-            <!-- Download Button -->
-                <div class="row mt-4">
-                    <div class="col-12 d-flex justify-content-center">
-                        <button id="downloadReports" class="btn btn-outline-success d-flex align-items-center" style="border-width: 2px; border-radius: 0.5rem;">
-                            <i class="bi bi-file-earmark-text-fill me-2"></i>
-                            <span class="fw-semibold">Download PDF & Excel</span>
-                        </button>
-                    </div>
-                </div>
-        </div>
-
 
 <div class="card shadow-sm border-0">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -385,7 +369,7 @@
                                 <label for="status_{{ $truck->truck_id }}" class="form-label">Status</label>
                                 <select name="status" id="status_{{ $truck->truck_id }}" class="form-select">
                                     <option value="active" @if($truck->status == 'active') selected @endif>Active</option>
-                                    <option value="inactive" @if($truck->status == 'inactive') selected @endif>Inactive</option>
+                                    <option value="idle" @if($truck->status == 'idle') selected @endif>Idle</option>
                                     <option value="maintenance" @if($truck->status == 'maintenance') selected @endif>Maintenance</option>
                                 </select>
                             </div>
@@ -426,7 +410,7 @@
         <select id="report-filter" class="form-select">
             <option value="">All Reports</option>
             <option value="new">New</option>
-            <option value="in-review">In Review</option>
+            <option value="in-review">Pending</option>
             <option value="resolved">Resolved</option>
         </select>
     </div>
@@ -451,7 +435,6 @@
                                 <th class="fw-semibold">Time</th>
                                 <th class="fw-semibold">Type</th>
                                 <th class="fw-semibold">Location</th>
-                                <th class="fw-semibold">Priority</th>
                                 <th class="fw-semibold">Status</th>
                                 <th class="fw-semibold text-center">Action</th>
                             </tr>
@@ -474,15 +457,6 @@
                                         {{ $issueDisplay }}
                                     </td>
                                     <td>{{ $report->location ?? '' }}</td>
-                                    <td>
-                                        @if(strtolower($report->priority ?? '') === 'high')
-                                            <span class="badge bg-danger">High</span>
-                                        @elseif(strtolower($report->priority ?? '') === 'medium')
-                                            <span class="badge bg-warning">Medium</span>
-                                        @else
-                                            <span class="badge bg-success">Low</span>
-                                        @endif
-                                    </td>
                                     <td>
                                         @php
                                             $status = $report->Status ?? 'Pending';
@@ -806,6 +780,55 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 
+
+document.addEventListener('DOMContentLoaded', function() {
+    const reportFilter = document.getElementById('report-filter');
+    const reportsTable = document.getElementById('admin-reports');
+    
+    if (reportFilter && reportsTable) {
+        reportFilter.addEventListener('change', function() {
+            const filterValue = this.value.toLowerCase();
+            const rows = reportsTable.getElementsByTagName('tr');
+            
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const statusCell = row.cells[4]; // Status column (5th column, index 4)
+                
+                if (statusCell) {
+                    const statusBadge = statusCell.querySelector('.badge');
+                    const statusText = statusBadge ? statusBadge.textContent.trim().toLowerCase() : '';
+                    
+                    // Show all reports if no filter selected
+                    if (filterValue === '') {
+                        row.style.display = '';
+                        continue;
+                    }
+                    
+                    // Map filter values to status text
+                    let shouldShow = false;
+                    
+                    switch(filterValue) {
+                        case 'new':
+                            // Show rows with "Pending" status (assuming "new" maps to "Pending")
+                            shouldShow = statusText === 'pending';
+                            break;
+                        case 'in-review':
+                            // Show rows with status that's not "Pending" or "Resolved"
+                            shouldShow = statusText == 'pending';
+                            break;
+                        case 'resolved':
+                            shouldShow = statusText === 'resolved';
+                            break;
+                    }
+                    
+                    row.style.display = shouldShow ? '' : 'none';
+                }
+            }
+        });
+    }
+});
+
+
 document.addEventListener('DOMContentLoaded', () => {
     const modals = document.querySelectorAll('.modal');
 
@@ -988,7 +1011,8 @@ new Chart(typeCtx, {
     },
     options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
+        cutout: '55%',
         plugins: {
             legend: { position: 'bottom' }
         }

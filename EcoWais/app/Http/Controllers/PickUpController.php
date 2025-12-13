@@ -20,39 +20,59 @@ class PickupController extends Controller
     }
     // ✅ Store new pickup schedule
     public function store(Request $request)
-    {
-       $validated = $request->validate([
-            'initial_location' => 'required|exists:locations,id',
-            'truck' => 'required|exists:trucks,id',
-            'admin-pickup-date' => 'required|date',
-            'admin-pickup-time' => 'required',
-        ]);
+{
+    $validated = $request->validate([
+        'initial_location' => 'required|exists:locations,id',
+        'truck' => 'required|exists:trucks,id',
+        'admin-pickup-date' => 'required|date',
+        'admin-pickup-time' => 'required',
+    ]);
 
-        // Fetch latitude and longitude from locations table
-        $location = Location::find($validated['initial_location']);
+    // Check if the truck already has a pickup on the same date
+    $existingPickup = Pickup::where('truck_id', $validated['truck'])
+        ->where('pickup_date', $validated['admin-pickup-date'])
+        ->first();
 
-        Pickup::create([
-            'location_id' => $validated['initial_location'],
-            'truck_id' => $validated['truck'],
-            'pickup_date' => $validated['admin-pickup-date'],
-            'pickup_time' => $validated['admin-pickup-time'],
-            'current_latitude' => $location->latitude,
-            'current_longitude' => $location->longitude,
-        ]);
-
-        return redirect()->route('municipality.scheduling')
-                         ->with('pickupSuccess', 'Pickup schedule added successfully!');
+    if ($existingPickup) {
+        return redirect()->back()
+            ->withInput()
+            ->with('error', 'This truck already has a pickup scheduled on this date!');
     }
+
+    // Fetch latitude and longitude from locations table
+    $location = Location::find($validated['initial_location']);
+
+    Pickup::create([
+        'location_id' => $validated['initial_location'],
+        'truck_id' => $validated['truck'],
+        'pickup_date' => $validated['admin-pickup-date'],
+        'pickup_time' => $validated['admin-pickup-time'],
+        'current_latitude' => $location->latitude,
+        'current_longitude' => $location->longitude,
+    ]);
+
+    return redirect()->route('municipality.scheduling')
+        ->with('pickupSuccess', 'Pickup schedule added successfully!');
+}
 
     // ✅ Delete a pickup schedule
-    public function destroy($id)
-    {
-        $pickup = Pickup::findOrFail($id);
-        $pickup->delete();
+public function destroy($id)
+{
+    $pickup = Pickup::findOrFail($id);
 
-        return redirect()->route('municipality.scheduling')
-                         ->with('success', 'Pickup schedule deleted successfully!');
-    }
+    // Toggle ENUM('true','false')
+    $pickup->Archived = ($pickup->Archived === 'true') ? 'false' : 'true';
+    $pickup->save();
+
+    return redirect()->route('municipality.scheduling')
+        ->with(
+            'success',
+            $pickup->Archived === 'true'
+                ? 'Pickup schedule archived successfully!'
+                : 'Pickup schedule restored successfully!'
+        );
+}
+
 
    public function getPickupLocations()
 {

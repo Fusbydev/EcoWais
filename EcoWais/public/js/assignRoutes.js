@@ -5,9 +5,13 @@ let initialLocation = null;
 let routeLine = null;
 
 // Initialize the map when modal opens
+
+document.querySelectorAll('.assign-route-btn').forEach(button => {
+    button.addEventListener('click', function () {
+        selectedTruckId = this.getAttribute('data-truck-id');
+    });
+});
 document.getElementById('assignRouteModal').addEventListener('shown.bs.modal', async function () {
-    // Get the selected truck
-    selectedTruckId = document.getElementById('truck').value;
 
     if (!selectedTruckId) {
         alert("⚠️ Please select a truck before assigning routes.");
@@ -55,7 +59,7 @@ async function loadTruckData() {
         if (!truck) {
             console.error('Available trucks:', trucksData);
             console.error('Selected value from dropdown:', selectedTruckId);
-            alert("❌ Truck not found. Check console for details.");
+            alert("Truck is not active. Click ok to proceed anyway.");
             return;
         }
 

@@ -9,7 +9,7 @@
     data-bs-toggle="modal" 
     data-bs-target="#manageLocationsModal"
 >
-    <i class="bi bi-geo-alt-fill me-1"></i> Manage Locations
+    <i class="bi bi-geo-alt-fill me-1"></i> Add Barangay
 </button>
 
 
@@ -168,26 +168,6 @@
                         <input type="text" class="form-control rounded-3 shadow-sm" id="location" name="location" required>
                     </div>
 
-                    <div class="mt-3">
-                        <label class="form-label fw-semibold">Assign Admin</label>
-                        <select class="form-select rounded-3 shadow-sm" id="adminId" name="adminId" required>
-                            <option value="">— Select Admin —</option>
-                            @php
-    $unassignedAdmins = $users->filter(function($user) {
-        return $user->role === 'barangay_admin' && !\App\Models\Location::where('adminId', $user->id)->exists();
-    });
-@endphp
-
-@if($unassignedAdmins->isEmpty())
-    <option value="" disabled>No Admin Available</option>
-@else
-    @foreach($unassignedAdmins as $admin)
-        <option value="{{ $admin->id }}">{{ $admin->name }}</option>
-    @endforeach
-@endif
-
-                        </select>
-                    </div>
 
                     <div class="row g-3 mt-3">
                         <div class="col-md-6">

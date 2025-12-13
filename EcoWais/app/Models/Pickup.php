@@ -17,6 +17,7 @@ class Pickup extends Model
         'current_latitude',
         'current_longitude',
         'status', // optional if you want to set default status
+        'Archived',
     ];
 
 

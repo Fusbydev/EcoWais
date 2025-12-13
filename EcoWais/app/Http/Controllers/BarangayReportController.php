@@ -23,7 +23,6 @@ class BarangayReportController extends Controller
                 'adminId'          => 'required|integer',
                 'location'          => 'required|string|max:255',
                 'incident_datetime' => 'required|date',
-                'priority'          => 'required|in:low,medium,high',
                 'description'       => 'required|string',
                 'photo'             => 'nullable|image|mimes:jpg,png,jpeg|max:5120',
             ]);
@@ -59,7 +58,6 @@ class BarangayReportController extends Controller
                 'adminId'          => $validated['adminId'],
                 'location'          => $validated['location'],
                 'incident_datetime' => $validated['incident_datetime'],
-                'priority'          => $validated['priority'],
                 'description'       => $validated['description'],
                 'photo_path'        => $filePath,
             ]);

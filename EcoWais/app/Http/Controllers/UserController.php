@@ -22,56 +22,56 @@ class UserController extends Controller
     // Store a new user
 public function store(Request $request)
 {
+    // Validate the request
+    $request->validate([
+        'name'     => 'required|string|max:255',
+        'email'    => 'required|email|unique:users,email',
+        'password' => 'required|string|min:6|confirmed',
+        'role'     => 'required|string',
+        'phone'    => 'nullable|string|size:11',
+        'location_id' => 'nullable|integer',
+        'truck_id'    => 'nullable|integer',
+    ], [
+        'email.unique' => 'A user with this email already exists.',
+        'phone.size' => 'Phone number must be exactly 11 digits.',
+        'password.confirmed' => 'Password confirmation does not match.',
+        'password.min' => 'Password must be at least 6 characters.',
+    ]);
+
     try {
-        $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email',
-            'password' => 'required|string|min:6|confirmed',
-            'role'     => 'required|string',
-            'phone'    => 'nullable|string|max:20',
-            'location_id' => 'nullable|integer', // For admins
-            'truck_id'    => 'nullable|integer', // For drivers
-        ]);
-
-        // Check if email exists manually
-        if (User::where('email', $validated['email'])->exists()) {
-            return redirect()->route('user-management')
-                ->with('error', 'A user with this email already exists.');
-        }
-
         // Create user
         $user = User::create([
-            'name'         => $validated['name'],
-            'email'        => $validated['email'],
-            'password'     => Hash::make($validated['password']),
-            'role'         => $validated['role'],
+            'name'         => $request->name,
+            'email'        => $request->email,
+            'password'     => Hash::make($request->password),
+            'role'         => $request->role,
             'status'       => 'activated',
-            'phone_number' => $validated['phone'] ?? null,
+            'phone_number' => $request->phone ?? null,
         ]);
 
         // Send verification email
         event(new \Illuminate\Auth\Events\Registered($user));
 
         // If collector/driver
-        if ($validated['role'] === 'barangay_waste_collector') {
+        if ($request->role === 'barangay_waste_collector') {
             $driver = Driver::create([
                 'user_id'      => $user->id,
-                'phone_number' => $validated['phone'] ?? null,
+                'phone_number' => $request->phone ?? null,
             ]);
 
             // Assign driver to selected truck
-            if (!empty($validated['truck_id'])) {
-                $truck = Truck::find($validated['truck_id']);
+            if (!empty($request->truck_id)) {
+                $truck = Truck::find($request->truck_id);
                 if ($truck) {
-                    $truck->driver_id = $driver->id; // <-- Use the driver ID
+                    $truck->driver_id = $driver->id;
                     $truck->save();
                 }
             }
         }
 
         // If admin, assign location
-        if ($validated['role'] === 'barangay_admin' && !empty($validated['location_id'])) {
-            $location = Location::find($validated['location_id']);
+        if ($request->role === 'barangay_admin' && !empty($request->location_id)) {
+            $location = Location::find($request->location_id);
             if ($location) {
                 $location->adminId = $user->id;
                 $location->save();
@@ -83,7 +83,8 @@ public function store(Request $request)
 
     } catch (\Exception $e) {
         return redirect()->back()
-            ->with('error', $e->getMessage());
+            ->withInput()
+            ->with('error', 'An error occurred: ' . $e->getMessage());
     }
 }
 

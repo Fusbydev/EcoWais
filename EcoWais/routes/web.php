@@ -128,9 +128,9 @@ Route::get('/barangay-admin/homepage', function () {
 
     if ($selectedLocation) {
         
-         $sessionPickups = Pickup::where('location_id', $selectedLocation->id)
-    ->orderBy('pickup_date', 'asc')
-    ->pluck('pickup_date'); // <-- use pluck to get only the dates
+        $sessionPickups = Pickup::where('location_id', $selectedLocation->id)
+            ->orderBy('pickup_date', 'asc')
+            ->pluck('pickup_date'); // <-- use pluck to get only the dates
 
         // Get trucks assigned to this location with drivers
         $trucks = Truck::with('driver.user')
@@ -139,8 +139,9 @@ Route::get('/barangay-admin/homepage', function () {
 
         foreach ($trucks as $truck) {
             $driver = $truck->driver->user ?? null;
+            $driverModel = $truck->driver ?? null; // Get the driver model
 
-            if ($driver) {
+            if ($driver && $driverModel) {
                 // Get today's attendance for this driver
                 $attendance = Attendance::where('user_id', $driver->id)
                     ->whereDate('created_at', now()->toDateString())
@@ -148,33 +149,27 @@ Route::get('/barangay-admin/homepage', function () {
 
                 $timeIn = $attendance->time_in ?? '-';
                 $timeOut = $attendance->time_out ?? '-';
-                $status = $attendance->status ?? 'Not Recorded';
+                $attendanceStatus = $attendance->status ?? 'Not Recorded';
 
                 // Calculate hours worked if both time in/out exist
-                $timeIn = $attendance->time_in ?? null;
-                $timeOut = $attendance->time_out ?? null;
-                $status = $attendance->status ?? 'Not Recorded';
-
                 $hoursWorked = '-';
-                if ($timeIn && $timeOut) {
+                if ($timeIn !== '-' && $timeOut !== '-') {
                     $hoursWorked = \Carbon\Carbon::parse($timeIn)
                         ->diffInHours(\Carbon\Carbon::parse($timeOut));
                 }
-
 
                 $truckData->push([
                     'name' => $driver->name,
                     'role' => $driver->role,
                     'truck_id' => $truck->id,
                     'driver_user_id' => $driver->id, // <-- needed for attendance forms
-                    'time_in' => $timeIn ?? '-',
-                    'time_out' => $timeOut ?? '-',
+                    'time_in' => $timeIn,
+                    'time_out' => $timeOut,
                     'hours_worked' => $hoursWorked,
-                    'status' => $status,
+                    'attendance_status' => $attendanceStatus, // Attendance status
+                    'status' => $driverModel->status ?? 'Not Recorded', // Driver status from drivers table
                     'sessionPickups' => $sessionPickups
                 ]);
-
-
             }
         }
     }
@@ -184,16 +179,16 @@ Route::get('/barangay-admin/homepage', function () {
     $total = $attendance->count();
     $location = Location::where('adminId', $userId)->first();
 
-if ($location) {
-    // Filter attendances by location_id
-    $attendances = Attendance::where('location_id', $location->id)->get();
+    if ($location) {
+        // Filter attendances by location_id
+        $attendances = Attendance::where('location_id', $location->id)->get();
 
-    $absent  = $attendances->where('status', 'Absent')->count();
-    $present = $attendances->where('status', 'Present')->count();
-    $late    = $attendances->where('status', 'Late')->count();
-} else {
-    $absent = $present = $late = 0; // no location assigned
-}
+        $absent  = $attendances->where('status', 'Absent')->count();
+        $present = $attendances->where('status', 'Present')->count();
+        $late    = $attendances->where('status', 'Late')->count();
+    } else {
+        $absent = $present = $late = 0; // no location assigned
+    }
 
     // Collectors (all trucks for now)
     $collectors1 = Truck::all();
@@ -211,19 +206,46 @@ if ($location) {
             ->pluck('pickup_date');
     }
 
-return view('barangay-admin.homepage', compact(
-    'locations',
-    'selectedLocation',
-    'truckData',
-    'absent',
-    'present',
-    'late',
-    'reports',
-    'collectors1',
-    'pickupDates',
-));
+    return view('barangay-admin.homepage', compact(
+        'locations',
+        'selectedLocation',
+        'truckData',
+        'absent',
+        'present',
+        'late',
+        'reports',
+        'collectors1',
+        'pickupDates',
+    ));
 
 })->name('barangay.admin.homepage');
+
+
+Route::patch('/trucks/{id}/idle', [TruckController::class, 'setIdle'])
+    ->name('truck.setIdle');
+
+
+// Add this route in web.php
+Route::post('/driver/update-status', function(\Illuminate\Http\Request $request) {
+    $request->validate([
+        'status' => 'required|in:on-route,break,returning'
+    ]);
+
+    $userId = session('user_id'); // or Auth::id()
+    
+    // Find the driver record for this user
+    $driver = \App\Models\Driver::where('user_id', $userId)->first();
+    
+    if (!$driver) {
+        return redirect()->back()->with('statusError', 'Driver not found!');
+    }
+    
+    // Update the driver status
+    $driver->status = $request->status;
+    $driver->save();
+    
+    return redirect()->back()->with('statusSuccess', 'Status updated successfully!');
+})->name('driver.update.status');
 
 Route::get('/barangay-admin/report', function () {
 
@@ -466,6 +488,8 @@ Route::get('barangay-waste-collector/homepage', function () {
         return "❌ No driver found for this user.";
     }
 
+    $today = Carbon::now()->toDateString();
+
     // Fetch pickups along with truck routes and completed points
     $scheduledPickups = DB::table('pickups')
         ->join('trucks', 'pickups.truck_id', '=', 'trucks.id')
@@ -473,16 +497,25 @@ Route::get('barangay-waste-collector/homepage', function () {
         ->where('trucks.driver_id', $driver->id)
         ->select(
             'pickups.*',
-            'pickups.completed_routes as completed_points',  // JSON column with completed points
+            'pickups.completed_routes as completed_points',
             'locations.location as location_name',
-            'trucks.pickups as truck_pickups'       // JSON column with planned route
+            'trucks.pickups as truck_pickups'
         )
         ->get();
 
+    // Filter only pickups for today
+    $todayPickups = $scheduledPickups->filter(function ($pickup) use ($today) {
+        return $pickup->pickup_date === $today;
+    });
+
+    // Initialize counters for TODAY'S routes only
     $totalCompleted = 0;
     $totalPending = 0;
 
     foreach ($scheduledPickups as $pickup) {
+        // Ensure pickup_date is in 'Y-m-d' format for JS
+        $pickup->pickup_date = Carbon::parse($pickup->pickup_date)->toDateString();
+
         $truckPoints = json_decode($pickup->truck_pickups, true) ?? [];
         $completedPoints = json_decode($pickup->completed_points ?? '[]', true);
 
@@ -494,11 +527,8 @@ Route::get('barangay-waste-collector/homepage', function () {
             $timeWindow = $point['timeWindow'] ?? null;
 
             if ($lat && $lng) {
-                // Compare coordinates exactly
                 $isCompleted = collect($completedPoints)->contains(function ($c) use ($lat, $lng) {
-                    return isset($c['lat'], $c['lng'])
-                        && $c['lat'] === $lat
-                        && $c['lng'] === $lng;
+                    return isset($c['lat'], $c['lng']) && $c['lat'] === $lat && $c['lng'] === $lng;
                 });
 
                 $status = $isCompleted ? 'Completed' : 'Pending';
@@ -509,10 +539,13 @@ Route::get('barangay-waste-collector/homepage', function () {
                     'status' => $status
                 ];
 
-                if ($isCompleted) {
-                    $totalCompleted++;
-                } else {
-                    $totalPending++;
+                // Only count if this pickup is for today
+                if ($pickup->pickup_date === $today) {
+                    if ($isCompleted) {
+                        $totalCompleted++;
+                    } else {
+                        $totalPending++;
+                    }
                 }
             }
         }
@@ -520,29 +553,14 @@ Route::get('barangay-waste-collector/homepage', function () {
         $pickup->points = $pickupPoints;
     }
 
-    // Waste totals for dashboard
-    $today = Carbon::now()->toDateString();
-    $month = Carbon::now()->format('Y-m');
-
-    $todayTotal = WasteCollection::whereDate('pickup_date', $today)
-        ->sum('kilos');
-
-    $monthTotal = WasteCollection::where('pickup_date', 'like', "$month%")
-        ->sum('kilos');
-
-    $totalWaste = \App\Models\WasteCollection::sum('kilos');
-
-    return view('barangay-waste-collector.homepage', [
-        'scheduledPickups' => $scheduledPickups,
-        'driver' => $driver,
-        'locations' => $locations,
-        'todayTotal' => $todayTotal,
-        'monthTotal' => $monthTotal,
-        'totalWaste' => $totalWaste,
-        'totalCompleted' => $totalCompleted,
-        'totalPending' => $totalPending
-    ]);
-
+    // Pass data to view
+    return view('barangay-waste-collector.homepage', compact(
+        'locations',
+        'scheduledPickups',
+        'todayPickups',
+        'totalCompleted',
+        'totalPending'
+    ));
 })->name('barangay.waste.collector.homepage');
 
 
@@ -702,7 +720,6 @@ Route::get('municipality-admin/dashboard', function () {
 
 Route::get('/driver/pickup-locations', [TruckController::class, 'getDriverPickupAddressesByUser']);
 
-Route::post('/update-driver-status', [TruckController::class, 'updateDriverStatus']);
 
 // routes/web.php
 Route::post('/pickup/{pickup}/complete-point', [PickupController::class, 'completePoint'])

@@ -30,180 +30,350 @@ document.addEventListener('DOMContentLoaded', () => {
         loadAllTruckMarkersAndRoutes();
     }
 });
+// Map Auto-Refresh Implementation - Simplified Version
+let refreshInterval;
 
+// Main refresh function that calls your existing functions
+async function refreshMapData() {
+    try {
+        console.log('Refreshing map data...');
+        
+        // Call your existing functions in sequence
+        await initializeTrackingMap();
+        await loadAllTruckMarkersAndRoutes();
+        
+        // If drawRouteOnRoad needs specific parameters, adjust accordingly
+        // Example: await drawRouteOnRoad(latLngs, truckId);
+        
+        console.log('Map data refreshed successfully');
+    } catch (error) {
+        console.error('Error refreshing map data:', error);
+    }
+}
+
+// Function to start auto-refresh
+function startAutoRefresh(interval) {
+    // Clear existing interval if any
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+
+    // Set new interval
+    refreshInterval = setInterval(() => {
+        refreshMapData();
+    }, interval);
+
+    console.log(`Auto-refresh started: every ${interval/1000} seconds`);
+}
+
+// Function to stop auto-refresh
+function stopAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+        console.log('Auto-refresh stopped');
+    }
+}
+
+// Event listener for the select dropdown
+document.addEventListener('DOMContentLoaded', () => {
+    const updateIntervalSelect = document.getElementById('update-interval');
+    
+    if (updateIntervalSelect) {
+        // Listen for changes in the dropdown
+        updateIntervalSelect.addEventListener('change', (e) => {
+            const interval = parseInt(e.target.value);
+            startAutoRefresh(interval);
+        });
+
+        // Optional: Start auto-refresh with default value on page load
+        // Uncomment the next line if you want it to start automatically
+        // startAutoRefresh(parseInt(updateIntervalSelect.value));
+    }
+
+
+
+    // Stop refresh when page is hidden (battery saving)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && refreshInterval) {
+            stopAutoRefresh();
+        } else if (!document.hidden && updateIntervalSelect) {
+            const interval = parseInt(updateIntervalSelect.value);
+            startAutoRefresh(interval);
+        }
+    });
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    stopAutoRefresh();
+});
+
+// Optional: Export functions if using modules
+// export { refreshMapData, startAutoRefresh, stopAutoRefresh };
 function initializeTrackingMap() {
     console.log('🗺️ Initializing Tracking Map (Calapan City)...');
 
-    // Clean up if map already exists
-    if (map) {
-        map.remove();
+    // Only initialize map once
+    if (!map) {
+        // ✅ Create map (first time only)
+        map = L.map('tracking-map', {
+            center: MAP_CONFIG.center,
+            zoom: MAP_CONFIG.zoom,
+            minZoom: MAP_CONFIG.minZoom,
+            maxZoom: MAP_CONFIG.maxZoom,
+            zoomControl: true,
+            zoomAnimation: false,  // Disable zoom animation
+            fadeAnimation: false,  // Disable fade animation
+            markerZoomAnimation: false  // Disable marker zoom animation
+        });
+
+        // ✅ Add base tile layer
+        L.tileLayer(TILE_LAYERS.street.url, {
+            attribution: TILE_LAYERS.street.attribution
+        }).addTo(map);
+
+        console.log('✅ Map centered on Calapan City, Oriental Mindoro.');
     }
 
-    // ✅ Create map
-    map = L.map('tracking-map', {
-        center: MAP_CONFIG.center,
-        zoom: MAP_CONFIG.zoom,
-        minZoom: MAP_CONFIG.minZoom,
-        maxZoom: MAP_CONFIG.maxZoom,
-        zoomControl: true
-    });
-
-    // ✅ Add base tile layer
-    L.tileLayer(TILE_LAYERS.street.url, {
-        attribution: TILE_LAYERS.street.attribution
-    }).addTo(map);
-
-    // ✅ Initialize marker cluster group (empty for now)
+    // ✅ Always clear and reinitialize marker cluster group on refresh
+    if (markerClusterGroup) {
+        map.removeLayer(markerClusterGroup);
+    }
     markerClusterGroup = L.markerClusterGroup();
     map.addLayer(markerClusterGroup);
 
-    console.log('✅ Map centered on Calapan City, Oriental Mindoro.');
+    console.log('✅ Markers cleared and ready for new data.');
 }
-
-
-async function loadAllTruckMarkersAndRoutes() {
+async function loadAllTruckMarkersAndRoutes(filterDate = null) {
     try {
-        // Fetch trucks with initial location + truck pickups
-        const trucksResponse = await fetch('/truck-pickups');
-        const trucksData = await trucksResponse.json();
+        // ---- DATE SETUP ----
+        // Use provided filterDate or default to today
+        const targetDate = filterDate || (() => {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        })();
+
+        console.log('🗓️ Target Date:', targetDate);
+
+        // ---- FETCH DATA ----
+        const [trucksResponse, pickupsResponse] = await Promise.all([
+            fetch('/truck-pickups'),
+            fetch('/pickup-locations')
+        ]);
+
+        let trucksData = await trucksResponse.json();
+        let pickupsData = await pickupsResponse.json();
+
+        console.log('📦 Raw Trucks Data:', trucksData);
+        console.log('📦 Raw Pickups Data:', pickupsData);
+
+        // ---- FILTER BY TARGET DATE ----
+        trucksData = trucksData.filter(truck => truck.pickup_date === targetDate);
         
-        // Fetch additional pickup points
-        const pickupsResponse = await fetch('/pickup-locations');
-        const pickupsData = await pickupsResponse.json();
+        // Get current truck locations from pickup-locations (for plotting truck icons)
+        const currentTruckLocations = pickupsData.filter(p => p.pickup_date === targetDate);
 
-        const truckGroups = {}; // Group points by truck_id
+        console.log('✅ Filtered Trucks (date match):', trucksData);
+        console.log('✅ Current Truck Locations:', currentTruckLocations);
 
-        // Process trucks + initial location + truck pickups
-        trucksData.forEach(truck => {
-            const points = [];
+        // ---- PROCESS TRUCKS ----
+        const truckGroups = {};
 
-            // Initial location → always truck icon
-            if (truck.initial_coords) {
-                points.push({
-                    latitude: truck.initial_coords.lat,
-                    longitude: truck.initial_coords.lng,
-                    barangay: 'Initial Location',
-                    pickup_date: '',
-                    pickup_time: '',
-                    driver_name: truck.driver_name,
-                    icon: '🚛' // 🔹 truck icon directly
-                });
+        // First, plot all trucks at their current locations from /pickup-locations
+        currentTruckLocations.forEach(location => {
+            const truck = trucksData.find(t => t.truck_id === location.truck_id);
+            
+            if (!truck) return; // Skip if truck data not found
+
+            if (!truckGroups[location.truck_id]) {
+                truckGroups[location.truck_id] = [];
             }
 
-            // Add pickups from truck object → default pickup icon
+            // Determine icon based on status
+            let truckIcon = '🚛'; // Default for active
+            if (location.status === 'idle') {
+                truckIcon = '🟡';
+            } else if (location.status === 'maintenance') {
+                truckIcon = '🔧';
+            }
+
+            // Add truck's current location
+            truckGroups[location.truck_id].push({
+                latitude: parseFloat(location.latitude),
+                longitude: parseFloat(location.longitude),
+                barangay: location.barangay,
+                pickup_date: location.pickup_date,
+                pickup_time: location.pickup_time,
+                driver_name: location.driver_name,
+                icon: truckIcon,
+                isTruckLocation: true,
+                status: location.status
+            });
+        });
+
+        // Now add pickup routes for ACTIVE trucks only
+        trucksData.forEach(truck => {
+            if (truck.status !== 'active') return; // Skip non-active trucks
+            
+            if (!truckGroups[truck.truck_id]) {
+                truckGroups[truck.truck_id] = [];
+            }
+
+            // Add pickups from truck.pickups array
             if (truck.pickups && truck.pickups.length > 0) {
                 truck.pickups.forEach(p => {
-                    points.push({
-                        latitude: p.lat,
-                        longitude: p.lng,
-                        barangay: p.barangay ?? 'Pickup Point',
-                        pickup_date: p.pickup_date ?? '',
-                        pickup_time: p.pickup_time ?? '',
-                        driver_name: truck.driver_name,
-                        icon: '📍', // default pickup
-                        timeWindow: p.timeWindow ? `${p.timeWindow.start} - ${p.timeWindow.end}` : ''
-                    });
-                });
-            }
+                    // Check if this pickup point is not the same as truck's current location
+                    const isDuplicate = truckGroups[truck.truck_id].some(point =>
+                        Math.abs(point.latitude - p.lat) < 0.0001 &&
+                        Math.abs(point.longitude - p.lng) < 0.0001
+                    );
 
-            truckGroups[truck.truck_id] = points;
-        });
-
-        // Merge pickups from /pickup-locations
-        pickupsData.forEach(p => {
-            if (!truckGroups[p.truck_id]) truckGroups[p.truck_id] = [];
-            // Avoid duplicates
-            const exists = truckGroups[p.truck_id].some(point =>
-                point.latitude === p.latitude && point.longitude === p.longitude
-            );
-            if (!exists) {
-                truckGroups[p.truck_id].push({
-                    latitude: p.latitude,
-                    longitude: p.longitude,
-                    barangay: p.barangay ?? 'Pickup Point',
-                    pickup_date: p.pickup_date ?? '',
-                    pickup_time: p.pickup_time ?? '',
-                    driver_name: p.driver_name,
-                    icon: p.driver_name ? '🚛' : '📍',
-                    timeWindow: p.timeWindow ? `${p.timeWindow.start} - ${p.timeWindow.end}` : ''
+                    if (!isDuplicate) {
+                        truckGroups[truck.truck_id].push({
+                            latitude: p.lat,
+                            longitude: p.lng,
+                            barangay: 'Pickup Point',
+                            pickup_date: truck.pickup_date,
+                            pickup_time: '',
+                            driver_name: truck.driver_name,
+                            icon: '📍',
+                            timeWindow: p.timeWindow
+                                ? `${p.timeWindow.start ?? ''} - ${p.timeWindow.end ?? ''}`
+                                : '',
+                            isPickupPoint: true
+                        });
+                    }
                 });
             }
         });
 
-        // Add markers & draw routes
+        console.log('🗺️ Final Truck Groups:', truckGroups);
+
+        // ---- RENDER MAP ----
         for (const truckId of Object.keys(truckGroups)) {
             const points = truckGroups[truckId];
-            const truckColor = getTruckColor(truckId); // Get color for this truck
+            if (points.length === 0) continue;
 
-            // Initial location first, then pickups by date/time
-            points.sort((a, b) => {
-                if (a.icon === '🚛') return -1;
-                if (b.icon === '🚛') return 1;
+            const truckColor = getTruckColor(truckId);
+            
+            // Find truck's current location and status
+            const truckLocation = points.find(p => p.isTruckLocation);
+            const isActive = truckLocation && truckLocation.status === 'active';
+
+            if (isActive) {
+                // ACTIVE TRUCK: Sort points, assign sequences, draw route
                 
-                // Sort by time window if available, otherwise by pickup_date/time
-                if (a.timeWindow && b.timeWindow) {
-                    const timeA = a.timeWindow.split(' - ')[0];
-                    const timeB = b.timeWindow.split(' - ')[0];
-                    return timeA.localeCompare(timeB);
-                }
-                
-                const dateA = a.pickup_date ? new Date(`${a.pickup_date}T${a.pickup_time}`) : new Date(0);
-                const dateB = b.pickup_date ? new Date(`${b.pickup_date}T${b.pickup_time}`) : new Date(0);
-                return dateA - dateB;
-            });
+                // Sort: truck location first, then by time window
+                points.sort((a, b) => {
+                    if (a.isTruckLocation) return -1;
+                    if (b.isTruckLocation) return 1;
 
-            // Add sequence numbers to pickup points (📍)
-            let sequenceNumber = 1;
-            points.forEach(p => {
-                if (p.icon === '📍') {
-                    p.sequence = sequenceNumber++;
-                }
-            });
-
-            const latlngs = points.map(p => [p.latitude, p.longitude]);
-
-            // Add markers
-            points.forEach(p => {
-                // Use sequence number for pickup points with truck color
-                const iconHtml = p.icon === '📍' && p.sequence 
-                    ? `<div style="background: ${truckColor}; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${p.sequence}</div>`
-                    : p.icon;
-
-                const truckIcon = L.divIcon({
-                    html: iconHtml,
-                    className: 'custom-truck-icon',
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 30]
+                    if (a.timeWindow && b.timeWindow) {
+                        return a.timeWindow.localeCompare(b.timeWindow);
+                    }
+                    return 0;
                 });
 
-                const marker = L.marker([p.latitude, p.longitude], { icon: truckIcon })
-                    .bindPopup(`
+                // Assign sequence numbers to pickup points only
+                let seq = 1;
+                points.forEach(p => {
+                    if (p.isPickupPoint) {
+                        p.sequence = seq++;
+                    }
+                });
+
+                // Render all markers
+                points.forEach(p => {
+                    let iconHtml;
+                    
+                    if (p.isTruckLocation) {
+                        // Truck icon
+                        iconHtml = p.icon;
+                    } else if (p.isPickupPoint) {
+                        // Numbered pickup point
+                        iconHtml = `<div style="background:${truckColor};color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:bold;">${p.sequence}</div>`;
+                    }
+
+                    const marker = L.marker(
+                        [p.latitude, p.longitude],
+                        {
+                            icon: L.divIcon({
+                                html: iconHtml,
+                                className: 'custom-truck-icon',
+                                iconSize: [30, 30],
+                                iconAnchor: [15, 30]
+                            })
+                        }
+                    ).bindPopup(`
                         <strong>${p.barangay}</strong><br>
                         🚛 Truck ID: ${truckId}<br>
                         ${p.sequence ? `📍 Stop #${p.sequence}<br>` : ''}
-                        ${p.driver_name ? `👨‍✈️ Driver: ${p.driver_name}<br>` : ''}
+                        ${p.isTruckLocation ? '📍 Current Location<br>' : ''}
+                        ${p.driver_name ? `👨‍✈️ ${p.driver_name}<br>` : ''}
                         ${p.timeWindow ? `⏰ ${p.timeWindow}<br>` : ''}
-                        ${p.pickup_date ? `📅 ${p.pickup_date}<br>` : ''}
                         ${p.pickup_time ? `⏰ ${p.pickup_time}<br>` : ''}
-                        <button onclick="openStreetView(${p.latitude}, ${p.longitude})">🛰️ Street View</button>
+                        📅 ${targetDate}
                     `);
 
-                markerClusterGroup.addLayer(marker);
-            });
+                    markerClusterGroup.addLayer(marker);
+                });
 
-            // Draw route connecting initial location -> pickups
-            await drawRouteOnRoad(latlngs, truckId);
+                // Draw route if there are multiple points
+                if (points.length > 1) {
+                    const latlngs = points.map(p => [p.latitude, p.longitude]);
+                    await drawRouteOnRoad(latlngs, truckId);
+                }
+
+            } else {
+                // IDLE/MAINTENANCE TRUCK: Show only status icon, no route
+                
+                points.forEach(p => {
+                    if (!p.isTruckLocation) return; // Only show truck location
+                    
+                    const marker = L.marker(
+                        [p.latitude, p.longitude],
+                        {
+                            icon: L.divIcon({
+                                html: p.icon,
+                                className: 'custom-truck-icon',
+                                iconSize: [30, 30],
+                                iconAnchor: [15, 30]
+                            })
+                        }
+                    ).bindPopup(`
+                        <strong>${p.barangay}</strong><br>
+                        🚛 Truck ID: ${truckId}<br>
+                        👨‍✈️ ${p.driver_name}<br>
+                        📅 ${p.pickup_date}<br>
+                        ⏰ ${p.pickup_time}<br>
+                        <em>Status: ${p.icon === '🟡' ? 'Idle' : 'Maintenance'}</em>
+                    `);
+
+                    markerClusterGroup.addLayer(marker);
+                });
+            }
         }
 
-        // Fit map to all markers
+        // Fit map bounds
         if (markerClusterGroup.getLayers().length > 0) {
             map.fitBounds(markerClusterGroup.getBounds());
+        } else {
+            console.log('ℹ️ No markers to display for date:', targetDate);
         }
 
     } catch (error) {
-        console.error('❌ Error loading all truck markers and routes:', error);
+        console.error('❌ Error loading map:', error);
     }
 }
+
+// Usage examples:
+// loadAllTruckMarkersAndRoutes(); // Uses today's date
+// loadAllTruckMarkersAndRoutes('2025-12-15'); // Uses custom date (ready for future UI integration)
+
 async function drawRouteOnRoad(latlngs, truckId) {
     if (latlngs.length < 2) return;
 
@@ -390,54 +560,58 @@ document.getElementById('driver-status-select').addEventListener('change', async
     }
 });
 
-async function updateDriverStatus() {
-    const status = document.getElementById('driver-status-select').value;
-    const pickupSelect = document.getElementById('pickup-location-select');
-    const selectedPickup = pickupSelect.value; // "lat,lng"
-    const [latitude, longitude] = selectedPickup ? selectedPickup.split(',') : [null, null];
-    console.log('DEBUG:', { latitude, longitude }); // ✅ check values before sending
-    try {
-        const response = await fetch('/update-driver-status', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({
-                status,
-                latitude,
-                longitude
-            })
-        });
 
-        const result = await response.json();
-        if (response.ok) {
-            console.log(result);
-            alert('Status updated successfully!');
-        } else {
-            alert(result.message || 'Error updating status');
-        }
-    } catch (err) {
-        console.error(err);
-        alert('Failed to update status');
-    }
-}
 
 document.addEventListener('DOMContentLoaded', () => {
     const tbody = document.getElementById('driver-routes');
-    tbody.innerHTML = ''; // Clear placeholder rows
+    const filterInput = document.getElementById('filter-date');
 
-    const pickups = window.scheduledPickups;
+    // Helper to normalize date to YYYY-MM-DD
+    const normalizeDate = (dateStr) => {
+        return new Date(dateStr).toISOString().split('T')[0];
+    };
 
-    pickups.forEach(pickup => {
-        if (pickup.points && pickup.points.length > 0) {
+    const renderPickups = (filterDate) => {
+        tbody.innerHTML = ''; // Clear table
+        const pickups = window.scheduledPickups || [];
+
+        // Filter pickups for the selected date
+        const filteredPickups = pickups.filter(p => normalizeDate(p.pickup_date) === filterDate);
+
+        if (filteredPickups.length === 0) {
+            // Find next upcoming pickup
+            const futurePickups = pickups
+                .filter(p => normalizeDate(p.pickup_date) > filterDate)
+                .map(p => normalizeDate(p.pickup_date))
+                .sort();
+            const nextPickup = futurePickups.length > 0 ? futurePickups[0] : null;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="4" class="text-center">
+                                No pickups today (${filterDate})
+                                ${nextPickup ? ` | Next pickup: ${nextPickup}` : ''}
+                            </td>`;
+            tbody.appendChild(tr);
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+
+        // Render filtered pickups
+        filteredPickups.forEach(pickup => {
+            if (!pickup.points || pickup.points.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="4" class="text-center">No pickup locations found for this truck.</td>`;
+                tbody.appendChild(tr);
+                return;
+            }
 
             // Parse completed_routes safely
             let completedRoutes = [];
             if (pickup.completed_routes) {
                 try {
-                    completedRoutes = Array.isArray(pickup.completed_routes) 
-                        ? pickup.completed_routes 
+                    completedRoutes = Array.isArray(pickup.completed_routes)
+                        ? pickup.completed_routes
                         : JSON.parse(pickup.completed_routes);
                 } catch (err) {
                     completedRoutes = [];
@@ -447,49 +621,51 @@ document.addEventListener('DOMContentLoaded', () => {
             pickup.points.forEach((point, index) => {
                 const rowId = `${pickup.id}-${index}`;
 
-                // Create the row
                 const tr = document.createElement('tr');
                 tr.dataset.pickupId = pickup.id;
                 tr.dataset.lat = point.lat;
                 tr.dataset.lng = point.lng;
 
-                // Time window
-                const tdTime = document.createElement('td');
-                tdTime.classList.add('text-center');
-                tdTime.textContent = point.timeWindow
-                    ? `${point.timeWindow.start || 'N/A'} - ${point.timeWindow.end || 'N/A'}`
-                    : 'N/A';
-                tr.appendChild(tdTime);
+                // Date column
+                const tdDate = document.createElement('td');
+                tdDate.classList.add('text-center');
+                tdDate.textContent = new Date(pickup.pickup_date).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                tr.appendChild(tdDate);
 
-
-                // Address placeholder
+                // Address column
                 const tdAddress = document.createElement('td');
                 tdAddress.classList.add('text-start');
                 tdAddress.innerHTML = `<span id="short-address-${rowId}">Loading address...</span>
                                        <span id="full-address-${rowId}" class="d-none"></span>`;
                 tr.appendChild(tdAddress);
 
-                // Status
+                // Status column
                 const tdStatus = document.createElement('td');
                 tdStatus.classList.add('text-center');
-
                 const isCompleted = completedRoutes.some(route => {
                     const tolerance = 0.00001;
                     return Math.abs(route.lat - point.lat) < tolerance && Math.abs(route.lng - point.lng) < tolerance;
                 });
-
                 const statusText = isCompleted ? 'Completed' : 'Pending';
                 const statusClass = isCompleted ? 'success' : 'secondary';
                 tdStatus.innerHTML = `<span class="badge bg-${statusClass}">${statusText}</span>`;
                 tr.appendChild(tdStatus);
 
-                // Action button
+                // Action column
                 const tdAction = document.createElement('td');
                 tdAction.classList.add('text-center');
                 const btn = document.createElement('button');
                 btn.classList.add('btn', 'btn-sm', 'btn-primary', 'mark-done-btn');
                 btn.textContent = 'Mark As Done';
-                if (isCompleted) btn.disabled = true; // disable if already completed
+
+                // Disable if completed or pickup is not today
+                if (isCompleted || normalizeDate(pickup.pickup_date) !== today) {
+                    btn.disabled = true;
+                }
                 tdAction.appendChild(btn);
                 tr.appendChild(tdAction);
 
@@ -527,13 +703,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                         const data = await res.json();
                         if (data.success) {
-                            // Update status immediately
                             tdStatus.querySelector('span.badge').textContent = 'Completed';
                             tdStatus.querySelector('span.badge').classList.remove('bg-secondary');
                             tdStatus.querySelector('span.badge').classList.add('bg-success');
                             btn.disabled = true;
 
-                            // Also update pickup.completed_routes locally to persist until refresh
                             if (!pickup.completed_routes) pickup.completed_routes = [];
                             pickup.completed_routes.push({ lat: point.lat, lng: point.lng });
                         }
@@ -543,13 +717,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
             });
-        } else {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td colspan="5" class="text-center">No pickup locations found for this truck.</td>`;
-            tbody.appendChild(tr);
-        }
+        });
+    };
+
+    // Initial render with today's date
+    renderPickups(filterInput.value);
+
+    // Re-render on date change
+    filterInput.addEventListener('change', () => {
+        renderPickups(filterInput.value);
     });
 });
+
+
+
+
+
 
 
 

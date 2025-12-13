@@ -80,6 +80,12 @@
                             <i class="bi bi-plus-circle-fill me-2"></i>Schedule New Pickup
                         </h5>
                     </div>
+                    @if(session('error'))
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ session('error') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    @endif
                     <div class="card-body p-4">
                         <form action="{{ route('pickup.store') }}" method="POST">
                             @csrf
@@ -216,18 +222,22 @@
                                                 @endif
                                             </td>
                                             <td class="text-center">
-                                                <form action="{{ route('pickup.destroy', $pickup->id) }}" 
-                                                      method="POST" 
-                                                      onsubmit="return confirm('Are you sure you want to delete this pickup schedule?');"
-                                                      class="d-inline">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" 
-                                                            class="btn btn-sm btn-outline-danger"
-                                                            title="Delete Schedule">
-                                                        <i class="bi bi-trash-fill"></i>
+                                                <form action="{{ route('pickup.destroy', $pickup->id) }}" method="POST" class="d-inline">
+                                                @csrf
+                                                @method('DELETE')
+
+                                                @if($pickup->Archived === 'true')
+                                                    <button class="btn btn-success btn-sm">
+                                                        <i class="bi bi-arrow-counterclockwise"></i> Restore
                                                     </button>
-                                                </form>
+                                                @else
+                                                    <button class="btn btn-warning btn-sm">
+                                                        <i class="bi bi-archive"></i> Archive
+                                                    </button>
+                                                @endif
+                                            </form>
+
+
                                             </td>
                                         </tr>
                                     @empty

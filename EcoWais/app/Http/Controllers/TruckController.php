@@ -74,17 +74,15 @@ class TruckController extends Controller
 public function getTruckPickups()
 {
     try {
-        // Get current user ID from session or Auth
         $userId = session('user_id'); // or Auth::id()
-
-        // Fetch user role from the database
         $user = \App\Models\User::find($userId);
-        $userRole = $user->role ?? null; // e.g., 'admin' or 'barangay_waste_collector'
+        $userRole = $user->role ?? null;
 
-        // Base query: only trucks with tracking = 'True'
-        $trucksQuery = Truck::with('driver.user')->where('tracking', 'True');
+        // Base query: trucks with tracking = 'True'
+        $trucksQuery = Truck::with('driver.user')
+            ->where('tracking', 'True');
 
-        // If user is a waste collector, only get their assigned truck(s)
+        // Only waste collector's trucks
         if ($userRole === 'barangay_waste_collector') {
             $trucksQuery->whereHas('driver', function ($q) use ($userId) {
                 $q->where('user_id', $userId);
@@ -93,7 +91,7 @@ public function getTruckPickups()
 
         $trucks = $trucksQuery->get();
 
-        $data = $trucks->map(function($truck) {
+        $data = $trucks->map(function ($truck) {
             // Decode pickups JSON if needed
             $pickups = $truck->pickups;
             if (is_string($pickups)) {
@@ -108,13 +106,22 @@ public function getTruckPickups()
                 $initial_coords = json_decode($initial_coords, true);
             }
 
+            // 🔹 Get pickup dates from pickups table
+            $pickupDate = \DB::table('pickups')
+    ->where('truck_id', $truck->id)
+    ->value('pickup_date'); // returns single value or null
+
+
             return [
                 'id'             => $truck->id,
                 'truck_id'       => $truck->truck_id,
+                'pickup_date'   => $pickupDate, // 🔹 added
+                'status'         => $truck->status,
                 'driver_name'    => $truck->driver->user->name ?? null,
                 'user_id'        => $truck->driver->user_id ?? null,
                 'initial_coords' => $initial_coords ?? null,
-                'pickups'        => $pickups
+                'pickups'        => $pickups,
+                
             ];
         });
 
@@ -126,6 +133,7 @@ public function getTruckPickups()
         ], 500);
     }
 }
+
 
 
 
@@ -185,42 +193,6 @@ public function getDriverPickupAddressesByUser(Request $request)
 }
 
 
-public function updateDriverStatus(Request $request)
-{
-    // 1️⃣ Get the user ID from session manually
-    $userId = session('user_id'); // set this when user logs in
-
-    // 2️⃣ Get the driver
-    $driver = DB::table('drivers')->where('user_id', $userId)->first();
-    if (!$driver) {
-        return response()->json(['message' => 'Driver not found'], 404);
-    }
-
-    // 3️⃣ Get the truck assigned to this driver
-    $truck = DB::table('trucks')->where('driver_id', $driver->id)->first();
-    if (!$truck) {
-        return response()->json(['message' => 'Truck not found'], 404);
-    }
-
-    // 4️⃣ Prepare update data
-    $updateData = [
-        'status' => $request->status ?? 'on-route',
-        'updated_at' => now(),
-    ];
-
-    if ($request->latitude && $request->longitude) {
-        $updateData['current_latitude'] = $request->latitude;
-        $updateData['current_longitude'] = $request->longitude;
-    }
-
-    // 5️⃣ Update the pickups table for this truck
-    DB::table('pickups')
-        ->where('truck_id', $truck->id)
-        ->update($updateData);
-
-    return response()->json(['message' => 'Status and location updated successfully']);
-}
-
 
 public function updateTracking(Request $request)
 {
@@ -270,7 +242,7 @@ public function updateTracking(Request $request)
             'truck_id' => 'required|string|max:255',
             'driver_id' => 'nullable|exists:drivers,id',
             'initial_location' => 'nullable|string|max:255',
-            'status' => 'required|in:active,inactive,maintenance',
+            'status' => 'required|in:active,idle,maintenance',
             'initial_fuel' => 'required|numeric|min:0|max:100',
         ]);
 
@@ -284,8 +256,14 @@ public function updateTracking(Request $request)
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Truck $truck)
-    {
-        //
-    }
+        public function setIdle($id)
+        {
+            $truck = Truck::findOrFail($id);
+
+            $truck->status = ($truck->status === 'active') ? 'idle' : 'active';
+            $truck->save();
+
+            return back()->with('success', 'Truck status updated successfully.');
+        }
+
 }

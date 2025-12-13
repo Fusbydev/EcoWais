@@ -2,7 +2,6 @@
 
 @section('content')
 
-<p>{{ session('user_id') }}</p>
 <div id="tracking-page" class="page">
     <div class="container-fluid px-4 py-4">
         <!-- Header -->
@@ -34,12 +33,14 @@
                         <label class="form-label small fw-semibold text-muted">
                             <i class="bi bi-clock-fill me-1"></i>UPDATE INTERVAL
                         </label>
-                        <select id="update-interval" class="form-select">
-                            <option value="5000">5 seconds</option>
-                            <option value="10000">10 seconds</option>
-                            <option value="30000">30 seconds</option>
-                            <option value="60000">1 minute</option>
-                        </select>
+                        <div class="d-flex gap-2 align-items-center">
+                            <select id="update-interval" class="form-select" style="width: 150px;">
+                                <option value="5000">5 seconds</option>
+                                <option value="10000">10 seconds</option>
+                                <option value="30000">30 seconds</option>
+                                <option value="60000">1 minute</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -98,15 +99,15 @@
                                 <span class="badge bg-warning" id="idle-count">0</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted small">Total Distance:</span>
-                                <span class="badge bg-info" id="total-distance">0 km</span>
+                                <span class="text-muted small">Maintenance:</span>
+                                <span class="badge bg-info" id="maintenance-count"></span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
+        @if(session('user_role')== 'municipality_administrator')
         <!-- Active Fleet Status Table -->
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-white border-bottom py-3">
@@ -215,12 +216,31 @@
                                     </td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <button class="btn btn-outline-primary" title="Edit">
-                                                <i class="bi bi-pencil-fill"></i>
+                                            <!-- Edit / Assign Route Button -->
+                                             <button class="btn btn-outline-primary assign-route-btn"
+                                                    data-truck-id="{{ $truck->id }}"
+                                                    title="Assign Route"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#assignRouteModal">
+                                                <i class="bi bi-map-fill"></i>
                                             </button>
-                                            <button class="btn btn-outline-danger" title="Delete">
-                                                <i class="bi bi-trash-fill"></i>
-                                            </button>
+
+
+                                            <form action="{{ route('truck.setIdle', $truck->id) }}" method="POST" class="d-inline">
+                                                @csrf
+                                                @method('PATCH')
+
+                                                @if($truck->status === 'active')
+                                                    <button class="btn btn-outline-danger" title="Set to Idle">
+                                                        <i class="bi bi-pause-circle"></i>
+                                                    </button>
+                                                @else
+                                                    <button class="btn btn-outline-success" title="Set to Active">
+                                                        <i class="bi bi-play-circle"></i>
+                                                    </button>
+                                                @endif
+                                            </form>
+
                                         </div>
                                     </td>
                                 </tr>
@@ -229,45 +249,10 @@
                     </table>
                 </div>
             </div>
+            
         </div>
 
-        @if(session('user_role') === 'municipality_administrator')
-<!-- Route Planning & Optimization -->
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-header bg-white border-bottom py-3">
-        <h5 class="mb-0">
-            <i class="bi bi-diagram-3-fill me-2"></i>Route Planning & Optimization
-        </h5>
-    </div>
-    <div class="card-body">
-        <div class="row g-3 align-items-end">
-            <div class="col-md-6">
-                <label class="form-label fw-semibold">Select Truck for Route Planning</label>
-                <select class="form-select" id="truck" name="truck" required>
-                    <option value="">— Select Truck —</option>
-                    @foreach($trucks as $truck)
-                        <option value="{{ $truck->id }}">{{ $truck->truck_id }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-md-6">
-                <div class="d-flex gap-2">
-                    <button class="btn btn-success flex-fill" onclick="optimizeRoute()">
-                        <i class="bi bi-arrow-clockwise me-1"></i>Optimize Route
-                    </button>
-                    <button class="btn btn-info flex-fill" onclick="showRouteDetails()">
-                        <i class="bi bi-list-check me-1"></i>Route Details
-                    </button>
-                    <button class="btn btn-warning flex-fill" data-bs-toggle="modal" data-bs-target="#assignRouteModal">
-                        <i class="bi bi-geo-alt-fill me-1"></i>Assign Route
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
-
+        @endif
     </div>
 </div>
 
@@ -330,6 +315,33 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+
+        async function updateTruckCounts() {
+    try {
+        const response = await fetch('/truck-pickups'); // your endpoint
+        const trucks = await response.json();
+
+        let active = 0, idle = 0, maintenance = 0;
+
+        trucks.forEach(truck => {
+            switch(truck.status) {
+                case 'active': active++; break;
+                case 'idle': idle++; break;
+                case 'maintenance': maintenance++; break;
+            }
+        });
+
+        document.getElementById('active-count').innerText = active;
+        document.getElementById('idle-count').innerText = idle;
+        document.getElementById('maintenance-count').innerText = maintenance;
+
+    } catch (error) {
+        console.error('Error fetching truck counts:', error);
+    }
+}
+
+// Call the function on page load
+updateTruckCounts();
         // Pickup Address Modal Handler
         const buttons = document.querySelectorAll('.show-address-btn');
         const modalBody = document.getElementById('pickup-address-modal-body');
