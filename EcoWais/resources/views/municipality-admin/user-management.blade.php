@@ -200,7 +200,7 @@
                                 @foreach ($trucks as $truck)
                                     @if (!$truck->driver_id)
                                         <option value="{{ $truck->id }}" {{ old('truck_id') == $truck->id ? 'selected' : '' }}>
-                                            {{ $truck->initial_location }}
+                                            {{ $truck->truck_id }} - {{ $truck->initial_location }}
                                         </option>
                                     @endif
                                 @endforeach

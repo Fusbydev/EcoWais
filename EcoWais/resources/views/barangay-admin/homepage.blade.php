@@ -275,7 +275,7 @@
 </div>
                     </div>
                 </div>
-@if($pickups->count() > 1)
+@if(!empty($pickups) && $pickups->count() > 1)
                         <!-- Modal for showing times -->
                         <div class="modal fade" id="pickupTimesModal-{{ \Carbon\Carbon::parse($date)->format('Y-m-d') }}" tabindex="-1">
                             <div class="modal-dialog modal-dialog-centered">

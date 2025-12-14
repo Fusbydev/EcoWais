@@ -5,13 +5,30 @@
 <div class="container">
 
     <button 
-    class="btn btn-primary mb-3"
-    data-bs-toggle="modal" 
-    data-bs-target="#manageLocationsModal"
->
-    <i class="bi bi-geo-alt-fill me-1"></i> Add Barangay
-</button>
+        class="btn btn-primary mb-3"
+        data-bs-toggle="modal" 
+        data-bs-target="#manageLocationsModal"
+    >
+        <i class="bi bi-geo-alt-fill me-1"></i> Add Barangay
+    </button>
 
+    <!-- Success Message -->
+    @if (session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    <!-- Error Message -->
+    @if (session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
 
     <!-- Locations Table -->
     <div class="card shadow-lg border-0 rounded-4">
@@ -22,7 +39,6 @@
         </div>
 
         <div class="card-body">
-
             <div class="table-responsive">
                 <table class="table table-hover align-middle text-start">
                     <thead class="table-primary text-dark">
@@ -66,10 +82,8 @@
                         </tr>
                         @endforeach
                     </tbody>
-
                 </table>
             </div>
-
         </div>
     </div>
 
@@ -94,7 +108,6 @@
                 </div>
 
                 <div class="modal-body">
-
                     <div class="mb-3">
                         <label class="fw-bold">Selected Barangay:</label>
                         <p id="assign_location_name" class="fs-5 text-primary fw-semibold mb-0"></p>
@@ -105,22 +118,19 @@
                         <option value="">— Select Admin —</option>
 
                         @php
-    $unassignedAdmins = $users->filter(function($user) {
-        return $user->role === 'barangay_admin' && !\App\Models\Location::where('adminId', $user->id)->exists();
-    });
-@endphp
+                        $unassignedAdmins = $users->filter(function($user) {
+                            return $user->role === 'barangay_admin' && !\App\Models\Location::where('adminId', $user->id)->exists();
+                        });
+                        @endphp
 
-@if($unassignedAdmins->isEmpty())
-    <option value="" disabled>No Admin Available</option>
-@else
-    @foreach($unassignedAdmins as $admin)
-        <option value="{{ $admin->id }}">{{ $admin->name }}</option>
-    @endforeach
-@endif
-
-
+                        @if($unassignedAdmins->isEmpty())
+                            <option value="" disabled>No Admin Available</option>
+                        @else
+                            @foreach($unassignedAdmins as $admin)
+                                <option value="{{ $admin->id }}">{{ $admin->name }}</option>
+                            @endforeach
+                        @endif
                     </select>
-
                 </div>
 
                 <div class="modal-footer">
@@ -128,7 +138,6 @@
                         <i class="bi bi-check2-circle me-1"></i>Assign
                     </button>
                 </div>
-
             </form>
 
         </div>
@@ -153,6 +162,19 @@
 
                 <div class="modal-body">
 
+                    <!-- Validation Errors -->
+                    @if ($errors->any())
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <strong><i class="bi bi-exclamation-circle-fill me-2"></i>Please correct the following errors:</strong>
+                            <ul class="mb-0 mt-2">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    @endif
+
                     <div class="alert alert-info border-0 shadow-sm rounded-3">
                         <i class="bi bi-info-circle-fill me-2"></i>
                         Click the map to select coordinates. Barangay name will auto-detect if possible.
@@ -165,19 +187,44 @@
 
                     <div class="mt-3">
                         <label class="form-label fw-semibold">Barangay Name</label>
-                        <input type="text" class="form-control rounded-3 shadow-sm" id="location" name="location" required>
+                        <input type="text" 
+                               class="form-control rounded-3 shadow-sm @error('location') is-invalid @enderror" 
+                               id="location" 
+                               name="location" 
+                               value="{{ old('location') }}"
+                               required>
+                        @error('location')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
-
 
                     <div class="row g-3 mt-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Latitude</label>
-                            <input type="text" class="form-control rounded-3 shadow-sm" id="latitude" name="latitude" readonly required>
+                            <input type="text" 
+                                   class="form-control rounded-3 shadow-sm @error('latitude') is-invalid @enderror" 
+                                   id="latitude" 
+                                   name="latitude" 
+                                   value="{{ old('latitude') }}"
+                                   readonly 
+                                   required>
+                            @error('latitude')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Longitude</label>
-                            <input type="text" class="form-control rounded-3 shadow-sm" id="longitude" name="longitude" readonly required>
+                            <input type="text" 
+                                   class="form-control rounded-3 shadow-sm @error('longitude') is-invalid @enderror" 
+                                   id="longitude" 
+                                   name="longitude" 
+                                   value="{{ old('longitude') }}"
+                                   readonly 
+                                   required>
+                            @error('longitude')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
                     </div>
 
@@ -209,12 +256,17 @@ function openAssignModal(id, name) {
     new bootstrap.Modal(document.getElementById('assignAdminModal')).show();
 }
 
-// MAP SCRIPT (same logic as your original, keeping functionality)
+// MAP SCRIPT
 document.addEventListener('DOMContentLoaded', function () {
     let map;
     let marker;
 
     const modalEl = document.getElementById('manageLocationsModal');
+
+    // Reopen modal if there are validation errors
+    @if ($errors->any())
+        new bootstrap.Modal(modalEl).show();
+    @endif
 
     modalEl.addEventListener('shown.bs.modal', function () {
 
@@ -226,44 +278,43 @@ document.addEventListener('DOMContentLoaded', function () {
             }).addTo(map);
 
             map.on('click', function(e) {
-    if (marker) map.removeLayer(marker);
-    marker = L.marker(e.latlng, { draggable: true }).addTo(map);
+                if (marker) map.removeLayer(marker);
+                marker = L.marker(e.latlng, { draggable: true }).addTo(map);
 
-    document.getElementById('latitude').value = e.latlng.lat.toFixed(6);
-    document.getElementById('longitude').value = e.latlng.lng.toFixed(6);
+                document.getElementById('latitude').value = e.latlng.lat.toFixed(6);
+                document.getElementById('longitude').value = e.latlng.lng.toFixed(6);
 
-    // Reverse geocode to get barangay name
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.address) {
-                const barangay = data.address.suburb || data.address.village || data.address.hamlet || '';
-                if (barangay) {
-                    document.getElementById('location').value = barangay;
-                }
-            }
-        })
-        .catch(err => console.warn('Reverse geocoding failed', err));
+                // Reverse geocode to get barangay name
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.address) {
+                            const barangay = data.address.suburb || data.address.village || data.address.hamlet || '';
+                            if (barangay) {
+                                document.getElementById('location').value = barangay;
+                            }
+                        }
+                    })
+                    .catch(err => console.warn('Reverse geocoding failed', err));
 
-    marker.on('dragend', function(ev) {
-        const p = ev.target.getLatLng();
-        document.getElementById('latitude').value = p.lat.toFixed(6);
-        document.getElementById('longitude').value = p.lng.toFixed(6);
+                marker.on('dragend', function(ev) {
+                    const p = ev.target.getLatLng();
+                    document.getElementById('latitude').value = p.lat.toFixed(6);
+                    document.getElementById('longitude').value = p.lng.toFixed(6);
 
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${p.lat}&lon=${p.lng}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.address) {
-                    const barangay = data.address.suburb || data.address.village || data.address.hamlet || '';
-                    if (barangay) {
-                        document.getElementById('location').value = barangay;
-                    }
-                }
-            })
-            .catch(err => console.warn('Reverse geocoding failed', err));
-    });
-});
-
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${p.lat}&lon=${p.lng}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.address) {
+                                const barangay = data.address.suburb || data.address.village || data.address.hamlet || '';
+                                if (barangay) {
+                                    document.getElementById('location').value = barangay;
+                                }
+                            }
+                        })
+                        .catch(err => console.warn('Reverse geocoding failed', err));
+                });
+            });
         }
 
         setTimeout(() => map.invalidateSize(), 200);
