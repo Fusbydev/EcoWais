@@ -16,7 +16,8 @@
                     <div class="card-body text-center">
                         <h5 class="card-title">Waste Collected Today</h5>
                         <h2 class="fw-bold text-success">{{ $todayTotal}} kg</h2>
-                        <p class="text-muted mb-0">As of {{ now()->format('F d, Y') }}</p>
+                        <p class="text-muted mb-0">As of {{ \Carbon\Carbon::now('Asia/Manila')->format('F d, Y') }}</p>
+
                     </div>
                 </div>
             </div>
@@ -243,51 +244,82 @@
                 <i class="bi bi-recycle fs-4 me-2"></i>
                 <h5 class="mb-0">Add Waste Collection Entry</h5>
             </div>
+            @if(session('errorWaste'))
+    <div class="alert alert-danger">
+        {{ session('errorWaste') }}
+    </div>
+@endif
+
+@if(session('successWaste'))
+    <div class="alert alert-success">
+        {{ session('successWaste') }}
+    </div>
+@endif
+
             <div class="card-body">
                 <form method="POST" action="{{ route('waste.store') }}">
-                    @csrf
-                    <input type="hidden" name="collector_id" value="{{ session('user_id') }}">
-                    <input type="text" value="{{ $truckId}}" name="truck_id" hidden>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Location</label>
-                            <select name="location_id" class="form-select" required>
-                                @foreach($locations as $loc)
-                                    <option value="{{ $loc->id }}">{{ $loc->location }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Collection Date</label>
-                            <input type="date" name="waste_date" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Waste Weight (kg)</label>
-                            <input type="number" name="weight" class="form-control" step="0.01" placeholder="Enter kilos" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Waste Type</label>
-                            <select name="waste_type" id="waste_type_select" class="form-select" required>
-                                <option value="">Select Type</option>
-                                <option value="Plastic">Plastic</option>
-                                <option value="Biodegradable">Biodegradable</option>
-                                <option value="Metal">Metal</option>
-                                <option value="Glass">Glass</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
+    @csrf
+    <input type="hidden" name="collector_id" value="{{ session('user_id') }}">
+    <input type="hidden" name="truck_id" value="{{ $truckId }}">
 
-<div class="col-md-6" id="other_waste_type_container" style="display: none;">
-    <label class="form-label fw-semibold">Specify Waste Type</label>
-    <input type="text" name="waste_type" id="other_waste_type" class="form-control" placeholder="Enter waste type">
+    <div class="row g-3">
+        <div class="col-md-6">
+    <label class="form-label fw-semibold">Location</label>
+    <select name="location_id" class="form-select" required>
+        @php
+            // Find the location assigned to this truck
+            $truckLocation = $locations->firstWhere('location', $truckInitialLocation);
+        @endphp
+        @if($truckLocation)
+            <option value="{{ $truckLocation->id }}">{{ $truckLocation->location }}</option>
+        @endif
+    </select>
 </div>
-                    </div>
-                    <div class="text-end mt-3">
-                        <button class="btn btn-primary px-4">
-                            <i class="bi bi-save2 me-1"></i> Save Entry
-                        </button>
-                    </div>
-                </form>
+
+
+        @php
+    $todayManila = \Carbon\Carbon::now('Asia/Manila')->toDateString();
+@endphp
+
+<div class="col-md-6">
+    <label class="form-label fw-semibold">Collection Date</label>
+    <input type="date" name="waste_date" class="form-control" required max="{{ $todayManila }}">
+</div>
+
+
+        <div class="col-md-6">
+            <label class="form-label fw-semibold">Waste Weight (kg)</label>
+            <input type="number" name="weight" class="form-control" step="0.01" placeholder="Enter kilos" required>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label fw-semibold">Waste Type</label>
+            <select id="waste_type_select" class="form-select" required>
+                <option value="">Select Type</option>
+                <option value="Plastic">Plastic</option>
+                <option value="Biodegradable">Biodegradable</option>
+                <option value="Metal">Metal</option>
+                <option value="Glass">Glass</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+
+        <div class="col-md-6" id="other_waste_type_container" style="display: none;">
+            <label class="form-label fw-semibold">Specify Waste Type</label>
+            <input type="text" id="other_waste_type" class="form-control" placeholder="Enter waste type">
+        </div>
+
+        <!-- Hidden input that will always contain the final waste type -->
+        <input type="hidden" name="waste_type" id="waste_type_hidden">
+    </div>
+
+    <div class="text-end mt-3">
+        <button class="btn btn-primary px-4">
+            <i class="bi bi-save2 me-1"></i> Save Entry
+        </button>
+    </div>
+</form>
+
             </div>
         </div>
 
@@ -326,25 +358,34 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
 
-    const selectElement = document.getElementById('waste_type_select');
-    
-    selectElement.addEventListener('change', function() {
-        const otherContainer = document.getElementById('other_waste_type_container');
-        const otherInput = document.getElementById('other_waste_type');
-        
-        if (this.value === 'Other') {
+    document.addEventListener('DOMContentLoaded', function () {
+    const select = document.getElementById('waste_type_select');
+    const otherContainer = document.getElementById('other_waste_type_container');
+    const otherInput = document.getElementById('other_waste_type');
+    const hiddenInput = document.getElementById('waste_type_hidden');
+
+    function updateWasteType() {
+        if (select.value === 'Other') {
             otherContainer.style.display = 'block';
-            otherInput.required = true;
-            this.removeAttribute('name'); // Remove name from select
+            hiddenInput.value = otherInput.value; // fallback if user types something
         } else {
             otherContainer.style.display = 'none';
-            otherInput.required = false;
-            otherInput.value = '';
-            this.setAttribute('name', 'waste_type'); // Restore name to select
+            hiddenInput.value = select.value;
         }
+    }
+
+    select.addEventListener('change', updateWasteType);
+    otherInput.addEventListener('input', function() {
+        hiddenInput.value = otherInput.value;
     });
+
+    // Initialize on page load
+    updateWasteType();
+});
+document.addEventListener('DOMContentLoaded', () => {
+
+    
 
 
     const issueSelect = document.getElementById('driver-issue-type');

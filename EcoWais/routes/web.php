@@ -174,6 +174,7 @@ Route::get('/barangay-admin/homepage', function () {
                     'name' => $driver->name,
                     'role' => $driver->role,
                     'truck_id' => $truck->id,
+                    'pickups' => $truck->pickups, // JSON column
                     'driver_user_id' => $driver->id, // <-- needed for attendance forms
                     'time_in' => $timeIn,
                     'time_out' => $timeOut,
@@ -503,9 +504,11 @@ Route::get('barangay-waste-collector/homepage', function () {
 
     // Get the truck assigned to this driver
     $truck = DB::table('trucks')->where('driver_id', $driver->id)->first();
+    $truckInitialLocation = $truck ? $truck->initial_location : null;
+
     $truckId = $truck ? $truck->id : null;
 
-    $today = Carbon::now()->toDateString();
+    $today = Carbon::now('Asia/Manila')->toDateString();
 
     // Fetch pickups along with truck routes and completed points
     $scheduledPickups = DB::table('pickups')
@@ -594,7 +597,8 @@ Route::get('barangay-waste-collector/homepage', function () {
         'todayTotal',
         'monthTotal',
         'driverId',
-        'truckId' // Added truck ID to compact
+        'truckId', // Added truck ID to compact
+        'truckInitialLocation' // <-- pass it'
     ));
 })->name('barangay.waste.collector.homepage');
 

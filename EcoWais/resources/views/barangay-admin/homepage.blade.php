@@ -355,6 +355,7 @@
                                         <tr>
                                             <th class="fw-semibold py-3 px-4" style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Driver Name</th>
                                             <th class="fw-semibold py-3 px-4" style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Pickup Schedule</th>
+                                            <th class="fw-semibold py-3 px-4" style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Pickup</th>
                                             <th class="fw-semibold py-3 px-4" style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
                                         </tr>
                                     </thead>
@@ -406,6 +407,35 @@
                                                         <span class="small" style="color: #94a3b8;">No upcoming pickups</span>
                                                     @endif
                                                 </td>
+
+                                                <td class="px-4 py-3">
+    @php
+        $truckPickups = collect($truck['pickups'] ?? []);
+    @endphp
+
+    @if($truckPickups->count() > 0)
+        <div class="d-flex flex-wrap gap-2">
+            @foreach($truckPickups->take(3) as $pickup)
+                <span class="pickup-badge badge rounded-2 px-2 py-1" 
+                      data-lat="{{ $pickup['lat'] }}" 
+                      data-lng="{{ $pickup['lng'] }}"
+                      style="background-color: #dbeafe; color: #1e40af; font-weight: 500; font-size: 0.75rem; border: 1px solid #bfdbfe;">
+                    <i class="bi bi-geo-alt me-1"></i>
+                    Loading...
+                </span>
+            @endforeach
+            @if($truckPickups->count() > 3)
+                <span class="badge rounded-2 px-2 py-1" style="background-color: #f1f5f9; color: #64748b; font-weight: 500; font-size: 0.75rem;">
+                    +{{ $truckPickups->count() - 3 }} more
+                </span>
+            @endif
+        </div>
+    @else
+        <span class="small" style="color: #94a3b8;">No pickups/routes</span>
+    @endif
+</td>
+
+
                                                 <td class="px-4 py-3">
                                                     <span class="badge rounded-2 px-3 py-2" style="background-color: {{ $statusColor['bg'] }}; color: {{ $statusColor['text'] }}; font-weight: 500; font-size: 0.875rem; border: 1px solid {{ $statusColor['border'] }};">
                                                         {{ $statusColor['label'] }}
@@ -441,6 +471,43 @@ $drivers = $truckData->map(function($d) {
 @endphp
 
 <script>
+
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    async function reverseGeocode(lat, lng) {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+                headers: {
+                    'Accept-Language': 'en',
+                    'User-Agent': 'MyApp/1.0' // Nominatim requires a user-agent
+                }
+            });
+
+            if (!res.ok) throw new Error('Failed to fetch');
+
+            const data = await res.json();
+            // Use display_name or parts of address if you want
+            return data.display_name || 'Unknown location';
+        } catch (err) {
+            console.error(err);
+            return 'Unknown location';
+        }
+    }
+
+    document.querySelectorAll('.pickup-badge').forEach(async function(badge) {
+        const lat = parseFloat(badge.dataset.lat);
+        const lng = parseFloat(badge.dataset.lng);
+
+        if (!isNaN(lat) && !isNaN(lng)) {
+            const address = await reverseGeocode(lat, lng);
+            badge.innerHTML = `<i class="bi bi-geo-alt me-1"></i>${address}`;
+        } else {
+            badge.innerHTML = `<i class="bi bi-geo-alt me-1"></i>Invalid coords`;
+        }
+    });
+});
+
 document.addEventListener("DOMContentLoaded", function() {
     const select = document.getElementById('issue-type');
 
