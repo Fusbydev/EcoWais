@@ -91,63 +91,72 @@
                             @csrf
                             
                             <div class="mb-4">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-geo-alt-fill text-primary me-1"></i>
-                                    Select Barangay <span class="text-danger">*</span>
-                                </label>
-                                <select class="form-select form-select-lg" id="initial_location" name="initial_location" required>
-                                    <option value="">— Choose a barangay —</option>
-                                    @foreach($locations as $location)
-                                        <option value="{{ $location->id }}">{{ $location->location }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
+    <label class="form-label fw-semibold">
+        <i class="bi bi-geo-alt-fill text-primary me-1"></i>
+        Select Barangay <span class="text-danger">*</span>
+    </label>
+    <select class="form-select form-select-lg" id="initial_location" name="initial_location" required>
+        <option value="">— Choose a barangay —</option>
+        @foreach($locations as $location)
+            <option value="{{ $location->id }}" data-location-name="{{ $location->location }}">
+                {{ $location->location }}
+            </option>
+        @endforeach
+    </select>
+</div>
 
-                            <div class="mb-4">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-calendar-event text-success me-1"></i>
-                                    Pickup Date <span class="text-danger">*</span>
-                                </label>
-                                <input type="date" 
-                                       id="admin-pickup-date" 
-                                       name="admin-pickup-date" 
-                                       class="form-control form-control-lg" 
-                                       required>
-                            </div>
+<div class="mb-4">
+    <label class="form-label fw-semibold">
+        <i class="bi bi-calendar-event text-success me-1"></i>
+        Pickup Date <span class="text-danger">*</span>
+    </label>
+    <input type="date" 
+           id="admin-pickup-date" 
+           name="admin-pickup-date" 
+           class="form-control form-control-lg" 
+           required>
+</div>
 
-                            <div class="mb-4">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-clock-fill text-warning me-1"></i>
-                                    Pickup Time <span class="text-danger">*</span>
-                                </label>
-                                <input type="time" 
-                                       id="admin-pickup-time" 
-                                       name="admin-pickup-time" 
-                                       class="form-control form-control-lg" 
-                                       required>
-                            </div>
+<div class="mb-4">
+    <label class="form-label fw-semibold">
+        <i class="bi bi-clock-fill text-warning me-1"></i>
+        Pickup Time <span class="text-danger">*</span>
+    </label>
+    <input type="time" 
+           id="admin-pickup-time" 
+           name="admin-pickup-time" 
+           class="form-control form-control-lg" 
+           required>
+</div>
 
-                            <div class="mb-4">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-truck-front-fill text-info me-1"></i>
-                                    Assigned Truck <span class="text-danger">*</span>
-                                </label>
-                                <select class="form-select form-select-lg" id="truck" name="truck" required>
-                                    <option value="">— Select a truck —</option>
-                                    @foreach($trucks as $truck)
-                                        <option value="{{ $truck->id }}">
-                                            {{ $truck->truck_id }}
-                                            @if($truck->driver && $truck->driver->user)
-                                                - {{ $truck->driver->user->name }}
-                                            @endif
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+<div class="mb-4">
+    <label class="form-label fw-semibold">
+        <i class="bi bi-truck-front-fill text-info me-1"></i>
+        Assigned Truck <span class="text-danger">*</span>
+    </label>
+    <select class="form-select form-select-lg" id="truck" name="truck" required>
+        <option value="">— Select a barangay first —</option>
+        @foreach($trucks as $truck)
+            @if($truck->status == 'idle')
+                <option value="{{ $truck->id }}" 
+                        data-initial-location="{{ $truck->initial_location }}"
+                        style="display: none;">
+                    {{ $truck->truck_id }}
+                    @if($truck->driver && $truck->driver->user)
+                        - {{ $truck->driver->user->name }}
+                    @endif
+                </option>
+            @endif
+        @endforeach
+    </select>
+    <small class="text-muted mt-1 d-block">
+        <i class="bi bi-info-circle me-1"></i>Only trucks assigned to the selected barangay will appear
+    </small>
+</div>
 
-                            <button type="submit" class="btn btn-success btn-lg w-100 shadow-sm">
-                                <i class="bi bi-check-circle-fill me-2"></i>Schedule Pickup
-                            </button>
+<button type="submit" class="btn btn-success btn-lg w-100 shadow-sm">
+    <i class="bi bi-check-circle-fill me-2"></i>Schedule Pickup
+</button>
                         </form>
                     </div>
                 </div>
@@ -168,6 +177,50 @@
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
+                            <div class="card-body">
+                                    <div class="row mb-3 g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-semibold text-muted">
+                                                <i class="bi bi-calendar-event me-1"></i>FILTER BY DATE
+                                            </label>
+                                            <input type="date" id="schedule-date-filter" class="form-control" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-semibold text-muted">
+                                                <i class="bi bi-truck-front-fill me-1"></i>FILTER BY TRUCK
+                                            </label>
+                                            <select id="schedule-truck-filter" class="form-select">
+                                                <option value="">All Trucks</option>
+                                                @foreach($pickups->unique('truck_id')->pluck('truck.truck_id')->filter() as $truckId)
+                                                    <option value="{{ $truckId }}">Truck {{ $truckId }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-semibold text-muted">
+                                                <i class="bi bi-geo-alt-fill me-1"></i>FILTER BY BARANGAY
+                                            </label>
+                                            <select id="schedule-barangay-filter" class="form-select">
+                                                <option value="">All Barangays</option>
+                                                @foreach($pickups->unique('location.location')->pluck('location.location')->filter() as $barangay)
+                                                    <option value="{{ $barangay }}">{{ $barangay }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <button id="clear-all-filters" class="btn btn-outline-secondary">
+                                            <i class="bi bi-x-circle me-1"></i>Clear all filters
+                                        </button>
+                                    </div>
+                                </div>
+                            <div>
+                                <table class="table table-hover align-middle mb-0">
+                                    <!-- Your existing table code -->
+                                </table>
+                            </div>
+                            
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -262,6 +315,200 @@
    
 
 <script>
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const barangaySelect = document.getElementById('initial_location');
+    const truckSelect = document.getElementById('truck');
+    
+    if (barangaySelect && truckSelect) {
+        barangaySelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const selectedLocationName = selectedOption.getAttribute('data-location-name');
+            
+            // Reset truck dropdown
+            truckSelect.value = '';
+            
+            // Get all truck options
+            const truckOptions = truckSelect.querySelectorAll('option');
+            
+            let availableTrucks = 0;
+            
+            // Show/hide trucks based on selected barangay
+            truckOptions.forEach((option, index) => {
+                if (index === 0) return; // Skip the first "Select a barangay first" option
+                
+                const truckLocation = option.getAttribute('data-initial-location');
+                
+                if (selectedLocationName && truckLocation === selectedLocationName) {
+                    option.style.display = '';
+                    availableTrucks++;
+                } else {
+                    option.style.display = 'none';
+                }
+            });
+            
+            // Update first option text based on availability
+            if (selectedLocationName) {
+                if (availableTrucks > 0) {
+                    truckOptions[0].textContent = `— Select a truck (${availableTrucks} available) —`;
+                } else {
+                    truckOptions[0].textContent = '— No trucks available for this barangay —';
+                }
+            } else {
+                truckOptions[0].textContent = '— Select a barangay first —';
+            }
+        });
+    }
+    const dateFilter = document.getElementById('schedule-date-filter');
+    const truckFilter = document.getElementById('schedule-truck-filter');
+    const barangayFilter = document.getElementById('schedule-barangay-filter');
+    const clearAllBtn = document.getElementById('clear-all-filters');
+    const tableBody = document.getElementById('admin-barangay-schedule-table');
+    
+    if (!tableBody) return;
+    
+    // Filter function
+    const filterTable = () => {
+        const selectedDate = dateFilter ? dateFilter.value : '';
+        const selectedTruck = truckFilter ? truckFilter.value : '';
+        const selectedBarangay = barangayFilter ? barangayFilter.value : '';
+        
+        const rows = tableBody.getElementsByTagName('tr');
+        let visibleCount = 0;
+        
+        // Remove any existing "no results" row
+        const existingNoResults = document.getElementById('no-results-row');
+        if (existingNoResults) existingNoResults.remove();
+        
+        Array.from(rows).forEach(row => {
+            // Skip empty state row
+            if (row.querySelector('td[colspan]')) {
+                row.style.display = 'none';
+                return;
+            }
+            
+            // Skip if not enough cells
+            if (row.cells.length < 5) return;
+            
+            let showRow = true;
+            
+            // Filter by Date
+            if (selectedDate) {
+                const dateCell = row.cells[1];
+                const dateBadge = dateCell.querySelector('.badge');
+                
+                if (dateBadge) {
+                    const rowDateText = dateBadge.textContent.trim();
+                    const rowDate = new Date(rowDateText);
+                    const filterDate = new Date(selectedDate);
+                    
+                    const rowDateOnly = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
+                    const filterDateOnly = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate());
+                    
+                    if (rowDateOnly.getTime() !== filterDateOnly.getTime()) {
+                        showRow = false;
+                    }
+                }
+            }
+            
+            // Filter by Truck
+            // Filter by Truck
+if (selectedTruck && showRow) {
+    const truckCell = row.cells[3];
+    
+    // Try to find the truck ID in the cell
+    const truckIdElement = truckCell.querySelector('span');
+    let truckId = '';
+    
+    if (truckIdElement) {
+        truckId = truckIdElement.textContent.trim();
+    } else {
+        // Fallback: check if it says "Unassigned"
+        truckId = truckCell.textContent.trim();
+    }
+    
+    // Exact match only
+    if (truckId !== selectedTruck && !truckId.includes('Unassigned')) {
+        showRow = false;
+    } else if (truckId.includes('Unassigned') && selectedTruck !== '') {
+        showRow = false;
+    }
+}
+            
+            // Filter by Barangay
+            if (selectedBarangay && showRow) {
+                const barangayCell = row.cells[0];
+                const barangayText = barangayCell.textContent.trim();
+                
+                if (!barangayText.includes(selectedBarangay)) {
+                    showRow = false;
+                }
+            }
+            
+            // Show or hide row
+            if (showRow) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        // Show "no results" message if no rows visible
+        if (visibleCount === 0) {
+            const noResultsRow = document.createElement('tr');
+            noResultsRow.id = 'no-results-row';
+            
+            let filterMessage = 'No pickups found';
+            const activeFilters = [];
+            
+            if (selectedDate) activeFilters.push(`date: ${selectedDate}`);
+            if (selectedTruck) activeFilters.push(`truck: ${selectedTruck}`);
+            if (selectedBarangay) activeFilters.push(`barangay: ${selectedBarangay}`);
+            
+            if (activeFilters.length > 0) {
+                filterMessage += ' for ' + activeFilters.join(', ');
+            }
+            
+            noResultsRow.innerHTML = `
+                <td colspan="5" class="text-center py-5">
+                    <div class="text-muted">
+                        <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                        <p class="mb-0">${filterMessage}</p>
+                        <small>Try adjusting your filters</small>
+                    </div>
+                </td>
+            `;
+            tableBody.appendChild(noResultsRow);
+        }
+        
+        console.log(`✅ Filters applied - Showing ${visibleCount} rows`);
+    };
+    
+    // Add event listeners
+    if (dateFilter) {
+        dateFilter.addEventListener('change', filterTable);
+    }
+    
+    if (truckFilter) {
+        truckFilter.addEventListener('change', filterTable);
+    }
+    
+    if (barangayFilter) {
+        barangayFilter.addEventListener('change', filterTable);
+    }
+    
+    // Clear all filters
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', () => {
+            if (dateFilter) dateFilter.value = '';
+            if (truckFilter) truckFilter.value = '';
+            if (barangayFilter) barangayFilter.value = '';
+            filterTable();
+        });
+    }
+});
 document.addEventListener('DOMContentLoaded', function() {
     // Set minimum date to today
     const dateInput = document.getElementById('admin-pickup-date');

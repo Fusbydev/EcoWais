@@ -56,6 +56,7 @@ public function store(Request $request)
         if ($request->role === 'barangay_waste_collector') {
             $driver = Driver::create([
                 'user_id'      => $user->id,
+                'status'       => 'break',
                 'phone_number' => $request->phone ?? null,
             ]);
 

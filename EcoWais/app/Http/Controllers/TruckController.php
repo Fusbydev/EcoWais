@@ -257,13 +257,29 @@ public function updateTracking(Request $request)
      * Remove the specified resource from storage.
      */
         public function setIdle($id)
-        {
-            $truck = Truck::findOrFail($id);
+{
+    $truck = Truck::findOrFail($id);
 
-            $truck->status = ($truck->status === 'active') ? 'idle' : 'active';
+    // If it's an AJAX request (auto-trigger), only set to idle
+    if (request()->wantsJson()) {
+        // Only update if not already idle
+        if ($truck->status !== 'idle') {
+            $truck->status = 'idle';
             $truck->save();
-
-            return back()->with('success', 'Truck status updated successfully.');
         }
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Truck status updated successfully.',
+            'status' => $truck->status
+        ]);
+    }
+
+    // For form submissions (manual button), toggle between active/idle
+    $truck->status = ($truck->status === 'active') ? 'idle' : 'active';
+    $truck->save();
+
+    return back()->with('success', 'Truck status updated successfully.');
+}
 
 }

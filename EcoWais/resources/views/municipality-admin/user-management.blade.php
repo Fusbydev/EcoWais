@@ -180,9 +180,11 @@
                             <label class="form-label fw-semibold">Location</label>
                             <select name="location_id" class="form-select" id="location-select">
                                 @foreach ($locations as $location)
+                                @if ($location->adminId == null)
                                     <option value="{{ $location->id }}" {{ old('location_id') == $location->id ? 'selected' : '' }}>
                                         {{ $location->location }}
                                     </option>
+                                @endif
                                 @endforeach
                             </select>
                         </div>

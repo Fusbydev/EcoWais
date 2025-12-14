@@ -30,14 +30,22 @@ class PickupController extends Controller
 
     // Check if the truck already has a pickup on the same date
     $existingPickup = Pickup::where('truck_id', $validated['truck'])
-        ->where('pickup_date', $validated['admin-pickup-date'])
-        ->first();
+    ->where('pickup_date', $validated['admin-pickup-date'])
+    ->first();
 
-    if ($existingPickup) {
+if ($existingPickup) {
+    // Get the truck to check its status
+    $truck = Truck::find($validated['truck']);
+    
+    // Only allow if truck status is idle, otherwise reject
+    if ($truck && $truck->status !== 'idle') {
         return redirect()->back()
             ->withInput()
             ->with('error', 'This truck already has a pickup scheduled on this date!');
     }
+}
+
+// Continue with storing the pickup...
 
     // Fetch latitude and longitude from locations table
     $location = Location::find($validated['initial_location']);
@@ -47,9 +55,16 @@ class PickupController extends Controller
         'truck_id' => $validated['truck'],
         'pickup_date' => $validated['admin-pickup-date'],
         'pickup_time' => $validated['admin-pickup-time'],
+        'Archived' => 'false',
         'current_latitude' => $location->latitude,
         'current_longitude' => $location->longitude,
     ]);
+
+     $truck = Truck::find($validated['truck']);
+    if ($truck) {
+        $truck->status = 'active';
+        $truck->save();
+    }
 
     return redirect()->route('municipality.scheduling')
         ->with('pickupSuccess', 'Pickup schedule added successfully!');

@@ -8,6 +8,7 @@ use App\Http\Controllers\TruckController;
 use App\Models\Location;
 use App\Models\Driver;
 use App\Models\Pickup;
+use App\Models\DriverReport;
 use App\Models\Truck;
 use App\Models\User;
 use App\Models\Attendance;
@@ -112,6 +113,17 @@ Route::get('/manage-locations', [LocationController::class, 'manageLocation'])->
 
 Route::post('/locations/assign-admin', [LocationController::class, 'assignAdmin'])
     ->name('locations.assignAdmin');
+
+// Driver Reports - Resolve
+Route::post('driver-reports/{id}/resolve', function ($id) {
+    $driverReport = DriverReport::findOrFail($id);
+    
+    $driverReport->status = 'resolved';
+    $driverReport->save();
+    
+    return redirect()->back()->with('success_driver', 'Driver report resolved successfully!');
+})->name('driver-reports.resolve');
+
 
 Route::get('/barangay-admin/homepage', function () {
 
@@ -221,8 +233,7 @@ Route::get('/barangay-admin/homepage', function () {
 })->name('barangay.admin.homepage');
 
 
-Route::patch('/trucks/{id}/idle', [TruckController::class, 'setIdle'])
-    ->name('truck.setIdle');
+Route::patch('/truck/{id}/set-idle', [TruckController::class, 'setIdle'])->name('truck.setIdle');
 
 
 // Add this route in web.php
@@ -488,6 +499,12 @@ Route::get('barangay-waste-collector/homepage', function () {
         return "❌ No driver found for this user.";
     }
 
+    $driverId = $driver->id; // Get the driver ID
+
+    // Get the truck assigned to this driver
+    $truck = DB::table('trucks')->where('driver_id', $driver->id)->first();
+    $truckId = $truck ? $truck->id : null;
+
     $today = Carbon::now()->toDateString();
 
     // Fetch pickups along with truck routes and completed points
@@ -553,13 +570,31 @@ Route::get('barangay-waste-collector/homepage', function () {
         $pickup->points = $pickupPoints;
     }
 
+    // Get waste collection totals for this driver's truck(s)
+    $todayTotal = DB::table('waste_collections')
+        ->join('trucks', 'waste_collections.truck_id', '=', 'trucks.id')
+        ->where('trucks.driver_id', $driver->id)
+        ->whereDate('waste_collections.pickup_date', $today)
+        ->sum('waste_collections.kilos');
+
+    $monthTotal = DB::table('waste_collections')
+        ->join('trucks', 'waste_collections.truck_id', '=', 'trucks.id')
+        ->where('trucks.driver_id', $driver->id)
+        ->whereMonth('waste_collections.pickup_date', now()->month)
+        ->whereYear('waste_collections.pickup_date', now()->year)
+        ->sum('waste_collections.kilos');
+
     // Pass data to view
     return view('barangay-waste-collector.homepage', compact(
         'locations',
         'scheduledPickups',
         'todayPickups',
         'totalCompleted',
-        'totalPending'
+        'totalPending',
+        'todayTotal',
+        'monthTotal',
+        'driverId',
+        'truckId' // Added truck ID to compact
     ));
 })->name('barangay.waste.collector.homepage');
 
@@ -632,6 +667,7 @@ Route::get('municipality-admin/admin', function (\Illuminate\Http\Request $reque
     $trucks = Truck::all();
     $reports = BarangayReport::all();
     $attendance = Attendance::all();
+    $driverReports = DriverReport::all();
 
     // --- Waste Dashboard Stats ---
     $todayTotal = WasteCollection::whereDate('pickup_date', now())->sum('kilos');
@@ -685,7 +721,7 @@ Route::get('municipality-admin/admin', function (\Illuminate\Http\Request $reque
         'locations', 'drivers', 'trucks', 'reports', 'users',
         'todayTotal', 'monthTotal', 'totalCollections',
         'dailyLabels', 'dailyData', 'typeLabels', 'typeData', 'totalWaste',
-        'attendance', 'filter'
+        'attendance', 'filter', 'driverReports'
     ));
 })->name('municipality.admin');
 
@@ -714,6 +750,7 @@ Route::put('/trucks/{truck}', [TruckController::class, 'update'])->name('trucks.
 
 
 Route::post('/api/get-route', [TruckController::class, 'getRoute']);
+
 Route::get('municipality-admin/dashboard', function () {  
     return view('municipality-admin.dashboard');
 })->name('municipality.dashboard');

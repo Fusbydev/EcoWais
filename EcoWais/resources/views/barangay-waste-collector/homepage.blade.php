@@ -15,7 +15,7 @@
                 <div class="card shadow-sm border-0">
                     <div class="card-body text-center">
                         <h5 class="card-title">Waste Collected Today</h5>
-                        <h2 class="fw-bold text-success">{{ $todayTotal ?? 0 }} kg</h2>
+                        <h2 class="fw-bold text-success">{{ $todayTotal}} kg</h2>
                         <p class="text-muted mb-0">As of {{ now()->format('F d, Y') }}</p>
                     </div>
                 </div>
@@ -24,7 +24,7 @@
                 <div class="card shadow-sm border-0">
                     <div class="card-body text-center">
                         <h5 class="card-title">Waste Collected This Month</h5>
-                        <h2 class="fw-bold text-primary">{{ $monthTotal ?? 0 }} kg</h2>
+                        <h2 class="fw-bold text-primary">{{ $monthTotal}} kg</h2>
                         <p class="text-muted mb-0">Month of {{ now()->format('F Y') }}</p>
                     </div>
                 </div>
@@ -247,6 +247,7 @@
                 <form method="POST" action="{{ route('waste.store') }}">
                     @csrf
                     <input type="hidden" name="collector_id" value="{{ session('user_id') }}">
+                    <input type="text" value="{{ $truckId}}" name="truck_id" hidden>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Location</label>
@@ -266,14 +267,20 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Waste Type</label>
-                            <select name="waste_type" class="form-select" required>
+                            <select name="waste_type" id="waste_type_select" class="form-select" required>
                                 <option value="">Select Type</option>
                                 <option value="Plastic">Plastic</option>
                                 <option value="Biodegradable">Biodegradable</option>
                                 <option value="Metal">Metal</option>
                                 <option value="Glass">Glass</option>
+                                <option value="Other">Other</option>
                             </select>
                         </div>
+
+<div class="col-md-6" id="other_waste_type_container" style="display: none;">
+    <label class="form-label fw-semibold">Specify Waste Type</label>
+    <input type="text" name="waste_type" id="other_waste_type" class="form-control" placeholder="Enter waste type">
+</div>
                     </div>
                     <div class="text-end mt-3">
                         <button class="btn btn-primary px-4">
@@ -320,6 +327,26 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+
+    const selectElement = document.getElementById('waste_type_select');
+    
+    selectElement.addEventListener('change', function() {
+        const otherContainer = document.getElementById('other_waste_type_container');
+        const otherInput = document.getElementById('other_waste_type');
+        
+        if (this.value === 'Other') {
+            otherContainer.style.display = 'block';
+            otherInput.required = true;
+            this.removeAttribute('name'); // Remove name from select
+        } else {
+            otherContainer.style.display = 'none';
+            otherInput.required = false;
+            otherInput.value = '';
+            this.setAttribute('name', 'waste_type'); // Restore name to select
+        }
+    });
+
+
     const issueSelect = document.getElementById('driver-issue-type');
     const otherGroup = document.getElementById('other-issue-group');
     const otherInput = document.getElementById('driver-issue-other');

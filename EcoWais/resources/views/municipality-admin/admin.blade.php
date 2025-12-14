@@ -140,6 +140,246 @@
     </div>
 </div>
 
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white border-bottom py-3">
+        <h5 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Reports Management</h5>
+    </div>
+    <div class="card-body">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-3" id="reportTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="barangay-tab" data-bs-toggle="tab" data-bs-target="#barangay-reports" type="button" role="tab">
+                    <i class="bi bi-geo-alt-fill me-2"></i>Barangay Reports
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="driver-tab" data-bs-toggle="tab" data-bs-target="#driver-reports" type="button" role="tab">
+                    <i class="bi bi-person-fill me-2"></i>Driver Reports
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="reportTabsContent">
+            <!-- Barangay Reports Tab -->
+            <div class="tab-pane fade show active" id="barangay-reports" role="tabpanel">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <select id="barangay-report-filter" class="form-select">
+                            <option value="">All Reports</option>
+                            <option value="new">New</option>
+                            <option value="pending">Pending</option>
+                            <option value="resolved">Resolved</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 d-flex justify-content-end">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#issueManagementModal">
+                            Manage Issues
+                        </button>
+                    </div>
+                </div>
+
+                @if(session('success1'))
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="bi bi-check-circle-fill me-2"></i>{{ session('success1') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                @endif
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="fw-semibold">Time</th>
+                                <th class="fw-semibold">Type</th>
+                                <th class="fw-semibold">Location</th>
+                                <th class="fw-semibold">Status</th>
+                                <th class="fw-semibold text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="barangay-admin-reports">
+                            @foreach($reports as $report)
+                                <tr>
+                                    <td class="text-muted">{{ $report->created_at ? $report->created_at->format('M d, Y h:i A') : '' }}</td>
+                                    <td>
+                                        @php
+                                            if ($report->issue_type === 'other') {
+                                                $issueDisplay = $report->other_issue ?? '';
+                                            } elseif ($report->issue_type === 'driver-absent') {
+                                                $driverName = $report->driver->user->name ?? 'Unknown';
+                                                $issueDisplay = "Absent - " . $driverName;
+                                            } else {
+                                                $issueDisplay = $report->issue_type ?? '';
+                                            }
+                                        @endphp
+                                        {{ $issueDisplay }}
+                                    </td>
+                                    <td>{{ $report->location ?? '' }}</td>
+                                    <td>
+                                        @php
+                                            $status = $report->Status ?? 'Pending';
+                                            $badgeClass = match($status) {
+                                                'Resolved' => 'bg-success',
+                                                'Pending'  => 'bg-warning text-dark',
+                                                default    => 'bg-info',
+                                            };
+                                        @endphp
+                                        <span class="badge {{ $badgeClass }}">
+                                            {{ $status }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <form action="{{ route('reports.resolve', $report->id) }}" method="POST" class="d-inline">
+                                            @csrf
+                                            <button 
+                                                type="submit"
+                                                class="btn btn-sm btn-outline-success me-1"
+                                                @if($report->Status === 'Resolved') disabled @endif
+                                            >
+                                                <i class="bi bi-check-circle-fill"></i> Resolve
+                                            </button>
+                                        </form>
+                                        <button 
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#viewReportModal-{{ $report->id }}"
+                                        >
+                                            <i class="bi bi-eye-fill"></i> View
+                                        </button>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Driver Reports Tab -->
+            <div class="tab-pane fade" id="driver-reports" role="tabpanel">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <select id="driver-report-filter" class="form-select">
+                            <option value="">All Reports</option>
+                            <option value="pending">Pending</option>
+                            <option value="resolved">Resolved</option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="fw-semibold">ID</th>
+                                <th class="fw-semibold">Driver</th>
+                                <th class="fw-semibold">Issue Type</th>
+                                <th class="fw-semibold">Description</th>
+                                <th class="fw-semibold">Priority</th>
+                                <th class="fw-semibold">Status</th>
+                                <th class="fw-semibold">Date</th>
+                                <th class="fw-semibold text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="driver-admin-reports">
+                            @forelse($driverReports as $dReport)
+                                <tr data-status="{{ strtolower($dReport->status ?? 'pending') }}" 
+                                    data-priority="{{ strtolower($dReport->priority ?? 'low') }}">
+                                    <td>#{{ $dReport->id }}</td>
+                                    <td>
+                                        @php
+                                            $driver = $drivers->firstWhere('id', $dReport->driver_id);
+                                            $driverName = $driver ? $driver->user->name : 'Unknown Driver';
+                                        @endphp
+                                        {{ $driverName }}
+                                    </td>
+                                    <td>
+                                        @php
+                                            $issueType = $dReport->issue_type ?? 'other';
+                                            $badgeColor = match($issueType) {
+                                                'vehicles' => 'bg-danger',
+                                                'access' => 'bg-info',
+                                                'schedule' => 'bg-warning text-dark',
+                                                'equipment' => 'bg-primary',
+                                                default => 'bg-secondary',
+                                            };
+                                        @endphp
+                                        <span class="badge {{ $badgeColor }}">
+                                            {{ ucfirst(str_replace('-', ' ', $issueType)) }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="text-truncate d-inline-block" 
+                                            style="max-width: 200px;" 
+                                            title="{{ $dReport->description ?? 'No description' }}">
+                                            {{ $dReport->description ?? 'No description' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @php
+                                            $priority = $dReport->priority ?? 'low';
+                                            $priorityBadge = match(strtolower($priority)) {
+                                                'high' => 'bg-danger',
+                                                'medium' => 'bg-warning text-dark',
+                                                default => 'bg-secondary',
+                                            };
+                                        @endphp
+                                        <span class="badge {{ $priorityBadge }}">
+                                            {{ ucfirst($priority) }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @php
+                                            $status = $dReport->status ?? 'pending';
+                                            $statusBadge = match(strtolower($status)) {
+                                                'resolved' => 'bg-success',
+                                                'in progress' => 'bg-info',
+                                                default => 'bg-warning text-dark',
+                                            };
+                                        @endphp
+                                        <span class="badge {{ $statusBadge }}">
+                                            {{ ucfirst($status) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-muted">
+                                        {{ $dReport->created_at ? $dReport->created_at->format('M d, Y g:i A') : '-' }}
+                                    </td>
+                                    <td class="text-center">
+                                        <form action="{{ route('driver-reports.resolve', $dReport->id) }}" method="POST" class="d-inline">
+                                            @csrf
+                                            <button 
+                                                type="submit"
+                                                class="btn btn-sm btn-outline-success me-1"
+                                                @if(strtolower($dReport->status ?? '') === 'resolved') disabled @endif
+                                            >
+                                                <i class="bi bi-check-circle-fill"></i> Resolve
+                                            </button>
+                                        </form>
+                                        <button 
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#viewDriverReportModal-{{ $dReport->id }}"
+                                        >
+                                            <i class="bi bi-eye-fill"></i> View
+                                        </button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                        No driver reports found
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-sm border-0">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
     <h5 class="mb-0">Attendance Records</h5>
@@ -154,7 +394,32 @@
 </div>
 
 
-    <div class="card-body p-3">
+
+<div class="card-body p-3">
+    <!-- Filters -->
+    <div class="row mb-3 g-2">
+        <div class="col-md-4">
+            <input type="text" class="form-control" id="filter-driver" placeholder="Search Driver or Barangay">
+        </div>
+        <div class="col-md-4">
+            <input type="date" class="form-control" id="filter-date" placeholder="Pickup Date">
+        </div>
+        <div class="col-md-4">
+            <button type="button" id="clear-filters" class="btn btn-secondary">
+                <i class="bi bi-x-circle"></i> Clear
+            </button>
+        </div>
+    </div>
+
+    <!-- Results Info -->
+    <div class="mb-2">
+        <small class="text-muted">
+            Showing <span id="showing-start">0</span> to <span id="showing-end">0</span> of <span id="total-records">0</span> records
+            <span id="filtered-info" style="display: none;">(filtered from <span id="original-total">0</span> total records)</span>
+        </small>
+    </div>
+
+    <div id="attendance-table">
         <div class="table-responsive">
             <table class="table table-bordered table-hover align-middle mb-0">
                 <thead class="table-light text-center">
@@ -168,7 +433,7 @@
                         <th class="fw-semibold">Status</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="attendance-tbody">
                     @forelse($attendance as $att)
                         @php
                             $hoursWorked = '-';
@@ -180,9 +445,12 @@
                                 );
                             }
                         @endphp
-                        <tr class="text-center align-middle">
-                            <td>{{ $users->firstWhere('id', $att->user_id)->name ?? 'Unknown' }}</td>
-                            <td>{{ $locations->firstWhere('id', $att->location_id)->location ?? 'Unknown' }}</td>
+                        <tr class="text-center align-middle" 
+                            data-driver="{{ strtolower($att->user->name ?? 'unknown') }}"
+                            data-barangay="{{ strtolower($att->location->location ?? 'unknown') }}"
+                            data-timein="{{ $att->time_in ? \Carbon\Carbon::parse($att->time_in)->format('Y-m-d') : '' }}">
+                            <td>{{ $att->user->name ?? 'Unknown' }}</td>
+                            <td>{{ $att->location->location ?? 'Unknown' }}</td>
                             <td>{{ $att->pickupSession ?? '-' }}</td>
                             <td>{{ $att->time_in ? \Carbon\Carbon::parse($att->time_in)->format('Y-m-d H:i:s') : '-' }}</td>
                             <td>{{ $att->time_out ? \Carbon\Carbon::parse($att->time_out)->format('Y-m-d H:i:s') : '-' }}</td>
@@ -204,7 +472,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr>
+                        <tr id="no-data-row">
                             <td colspan="7" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox fs-3 d-block mb-2"></i>
                                 No attendance records found
@@ -213,11 +481,18 @@
                     @endforelse
                 </tbody>
             </table>
+
+            <!-- Custom Pagination -->
+            <nav aria-label="Page navigation" class="mt-3">
+                <ul class="pagination justify-content-end" id="pagination-controls">
+                    <!-- Pagination buttons will be generated by JavaScript -->
+                </ul>
+            </nav>
         </div>
     </div>
+
 </div>
-
-
+</div>
 
         <!-- Fleet Management -->
         <div class="card shadow-sm border-0 mb-4">
@@ -397,112 +672,8 @@
     </div>
 </div>
 @endforeach
-
-
-        <!-- Pending Reports -->
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-white border-bottom py-3">
-                <h5 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Pending Reports</h5>
-            </div>
-            <div class="card-body">
-                <div class="row g-3 mb-3">
-    <div class="col-md-6">
-        <select id="report-filter" class="form-select">
-            <option value="">All Reports</option>
-            <option value="new">New</option>
-            <option value="in-review">Pending</option>
-            <option value="resolved">Resolved</option>
-        </select>
-    </div>
-    <div class="col-md-6 d-flex justify-content-end">
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#issueManagementModal">
-            Manage Issues
-        </button>
-    </div>
-</div>
-
-
-            @if(session('success1'))
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="bi bi-check-circle-fill me-2"></i>{{ session('success1') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="fw-semibold">Time</th>
-                                <th class="fw-semibold">Type</th>
-                                <th class="fw-semibold">Location</th>
-                                <th class="fw-semibold">Status</th>
-                                <th class="fw-semibold text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-reports">
-                            @foreach($reports as $report)
-                                <tr>
-                                    <td class="text-muted">{{ $report->created_at ? $report->created_at->format('M d, Y h:i A') : '' }}</td>
-                                    <td>
-                                        @php
-                                            if ($report->issue_type === 'other') {
-                                                $issueDisplay = $report->other_issue ?? '';
-                                            } elseif ($report->issue_type === 'driver-absent') {
-                                                $driverName = $report->driver->user->name ?? 'Unknown';
-                                                $issueDisplay = "Absent - " . $driverName;
-                                            } else {
-                                                $issueDisplay = $report->issue_type ?? '';
-                                            }
-                                        @endphp
-                                        {{ $issueDisplay }}
-                                    </td>
-                                    <td>{{ $report->location ?? '' }}</td>
-                                    <td>
-                                        @php
-                                            $status = $report->Status ?? 'Pending';
-                                            $badgeClass = match($status) {
-                                                'Resolved' => 'bg-success',
-                                                'Pending'  => 'bg-warning text-dark',
-                                                default    => 'bg-info',
-                                            };
-                                        @endphp
-
-                                        <span class="badge {{ $badgeClass }}">
-                                            {{ $status }}
-                                        </span>
-                                    </td>
-
-                                    <td class="text-center">
-
-                            <form action="{{ route('reports.resolve', $report->id) }}" method="POST" class="d-inline">
-                                @csrf
-                                <button 
-                                    type="submit"
-                                    class="btn btn-sm btn-outline-success me-1"
-                                    @if($report->Status === 'Resolved') disabled @endif
-                                >
-                                    <i class="bi bi-check-circle-fill"></i> Resolve
-                                </button>
-                            </form>
-
-
-                            <button 
-                                class="btn btn-sm btn-outline-primary"
-                                data-bs-toggle="modal" 
-                                data-bs-target="#viewReportModal-{{ $report->id }}"
-                            >
-                                <i class="bi bi-eye-fill"></i> View
-                            </button>
-
-
-                        </td>
-
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+<!-- Pending Reports -->
+        
         </div>
 
 <!-- view modal -->
@@ -778,9 +949,303 @@
 
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 
+    document.addEventListener('DOMContentLoaded', function() {
+    // Barangay Reports Filter
+    const barangayReportFilter = document.getElementById('barangay-report-filter');
+    const barangayReportsTable = document.getElementById('barangay-admin-reports');
+    
+    if (barangayReportFilter && barangayReportsTable) {
+        barangayReportFilter.addEventListener('change', function() {
+            filterReports(this.value, barangayReportsTable, 3); // Status is at index 3
+        });
+    }
 
+    // Driver Reports Filters
+    const driverReportFilter = document.getElementById('driver-report-filter');
+    const priorityFilter = document.getElementById('priority-filter');
+    const driverReportsTable = document.getElementById('driver-admin-reports');
+    
+    if (driverReportFilter && driverReportsTable) {
+        driverReportFilter.addEventListener('change', function() {
+            filterDriverReports();
+        });
+    }
+
+    if (priorityFilter && driverReportsTable) {
+        priorityFilter.addEventListener('change', function() {
+            filterDriverReports();
+        });
+    }
+
+    function filterReports(filterValue, tableBody, statusColumnIndex) {
+        const rows = tableBody.getElementsByTagName('tr');
+        let visibleCount = 0;
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const statusCell = row.cells[statusColumnIndex];
+            
+            if (statusCell) {
+                const statusBadge = statusCell.querySelector('.badge');
+                const statusText = statusBadge ? statusBadge.textContent.trim().toLowerCase() : '';
+                
+                if (filterValue === '' || filterValue.toLowerCase() === statusText) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        }
+
+        showNoResultsMessage(visibleCount, tableBody, statusColumnIndex === 3 ? 5 : 8);
+    }
+
+    function filterDriverReports() {
+        const statusFilter = driverReportFilter.value.toLowerCase();
+        const priority = priorityFilter.value.toLowerCase();
+        const rows = driverReportsTable.getElementsByTagName('tr');
+        let visibleCount = 0;
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const rowStatus = row.getAttribute('data-status') || '';
+            const rowPriority = row.getAttribute('data-priority') || '';
+
+            const matchesStatus = statusFilter === '' || rowStatus === statusFilter;
+            const matchesPriority = priority === '' || rowPriority === priority;
+
+            if (matchesStatus && matchesPriority) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        }
+
+        showNoResultsMessage(visibleCount, driverReportsTable, 8);
+    }
+
+    function showNoResultsMessage(visibleCount, tableBody, colspan) {
+        let noResultsRow = tableBody.querySelector('#no-results-row');
+        
+        if (visibleCount === 0) {
+            if (!noResultsRow) {
+                noResultsRow = document.createElement('tr');
+                noResultsRow.id = 'no-results-row';
+                noResultsRow.innerHTML = `
+                    <td colspan="${colspan}" class="text-center text-muted py-4">
+                        <i class="bi bi-search fs-3 d-block mb-2"></i>
+                        No reports found matching the filters
+                    </td>
+                `;
+                tableBody.appendChild(noResultsRow);
+            }
+            noResultsRow.style.display = '';
+        } else {
+            if (noResultsRow) {
+                noResultsRow.style.display = 'none';
+            }
+        }
+    }
+});
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('filter-driver');
+    const dateInput = document.getElementById('filter-date');
+    const clearBtn = document.getElementById('clear-filters');
+    const tbody = document.getElementById('attendance-tbody');
+    const paginationControls = document.getElementById('pagination-controls');
+    
+    const showingStart = document.getElementById('showing-start');
+    const showingEnd = document.getElementById('showing-end');
+    const totalRecords = document.getElementById('total-records');
+    const filteredInfo = document.getElementById('filtered-info');
+    const originalTotal = document.getElementById('original-total');
+
+    let allRows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.cells.length >= 7);
+    let filteredRows = [...allRows];
+    let currentPage = 1;
+    const rowsPerPage = 10;
+
+    originalTotal.textContent = allRows.length;
+
+    function filterRows() {
+        const searchVal = searchInput.value.toLowerCase().trim();
+        const dateVal = dateInput.value;
+
+        filteredRows = allRows.filter(row => {
+            const driver = row.getAttribute('data-driver') || '';
+            const barangay = row.getAttribute('data-barangay') || '';
+            const timeIn = row.getAttribute('data-timein') || '';
+
+            const matchesSearch = searchVal === '' || 
+                                  driver.includes(searchVal) || 
+                                  barangay.includes(searchVal);
+            
+            const matchesDate = dateVal === '' || timeIn.includes(dateVal);
+
+            return matchesSearch && matchesDate;
+        });
+
+        currentPage = 1; // Reset to first page when filtering
+        updateDisplay();
+    }
+
+    function updateDisplay() {
+        const totalFiltered = filteredRows.length;
+        const totalPages = Math.ceil(totalFiltered / rowsPerPage);
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = Math.min(startIndex + rowsPerPage, totalFiltered);
+
+        // Hide all rows first
+        allRows.forEach(row => row.style.display = 'none');
+
+        // Show only current page rows
+        if (totalFiltered > 0) {
+            for (let i = startIndex; i < endIndex; i++) {
+                filteredRows[i].style.display = '';
+            }
+            hideNoResults();
+            
+            // Update info text
+            showingStart.textContent = startIndex + 1;
+            showingEnd.textContent = endIndex;
+            totalRecords.textContent = totalFiltered;
+            
+            if (totalFiltered < allRows.length) {
+                filteredInfo.style.display = '';
+            } else {
+                filteredInfo.style.display = 'none';
+            }
+        } else {
+            showNoResults();
+            showingStart.textContent = 0;
+            showingEnd.textContent = 0;
+            totalRecords.textContent = 0;
+            filteredInfo.style.display = 'none';
+        }
+
+        // Update pagination
+        renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+        paginationControls.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        // Previous button
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>`;
+        paginationControls.appendChild(prevLi);
+
+        // Page numbers
+        const maxButtons = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+        if (endPage - startPage < maxButtons - 1) {
+            startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+
+        if (startPage > 1) {
+            const firstLi = document.createElement('li');
+            firstLi.className = 'page-item';
+            firstLi.innerHTML = `<a class="page-link" href="#" data-page="1">1</a>`;
+            paginationControls.appendChild(firstLi);
+
+            if (startPage > 2) {
+                const dotsLi = document.createElement('li');
+                dotsLi.className = 'page-item disabled';
+                dotsLi.innerHTML = `<span class="page-link">...</span>`;
+                paginationControls.appendChild(dotsLi);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
+            paginationControls.appendChild(li);
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                const dotsLi = document.createElement('li');
+                dotsLi.className = 'page-item disabled';
+                dotsLi.innerHTML = `<span class="page-link">...</span>`;
+                paginationControls.appendChild(dotsLi);
+            }
+
+            const lastLi = document.createElement('li');
+            lastLi.className = 'page-item';
+            lastLi.innerHTML = `<a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>`;
+            paginationControls.appendChild(lastLi);
+        }
+
+        // Next button
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>`;
+        paginationControls.appendChild(nextLi);
+
+        // Attach click events
+        paginationControls.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const page = parseInt(this.getAttribute('data-page'));
+                if (page >= 1 && page <= totalPages) {
+                    currentPage = page;
+                    updateDisplay();
+                }
+            });
+        });
+    }
+
+    function showNoResults() {
+        let noResultsRow = document.getElementById('no-results-row');
+        if (!noResultsRow) {
+            noResultsRow = document.createElement('tr');
+            noResultsRow.id = 'no-results-row';
+            noResultsRow.innerHTML = `
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="bi bi-search fs-3 d-block mb-2"></i>
+                    No matching records found
+                </td>
+            `;
+            tbody.appendChild(noResultsRow);
+        }
+        noResultsRow.style.display = '';
+        
+        // Hide the "no data" row if it exists
+        const noDataRow = document.getElementById('no-data-row');
+        if (noDataRow) noDataRow.style.display = 'none';
+    }
+
+    function hideNoResults() {
+        const noResultsRow = document.getElementById('no-results-row');
+        if (noResultsRow) {
+            noResultsRow.style.display = 'none';
+        }
+    }
+
+    // Event listeners
+    searchInput.addEventListener('input', filterRows);
+    dateInput.addEventListener('change', filterRows);
+    
+    clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        dateInput.value = '';
+        filterRows();
+    });
+
+    // Initial display
+    updateDisplay();
+});
 document.addEventListener('DOMContentLoaded', function() {
     const reportFilter = document.getElementById('report-filter');
     const reportsTable = document.getElementById('admin-reports');
@@ -789,10 +1254,11 @@ document.addEventListener('DOMContentLoaded', function() {
         reportFilter.addEventListener('change', function() {
             const filterValue = this.value.toLowerCase();
             const rows = reportsTable.getElementsByTagName('tr');
+            let visibleCount = 0;
             
             for (let i = 0; i < rows.length; i++) {
                 const row = rows[i];
-                const statusCell = row.cells[4]; // Status column (5th column, index 4)
+                const statusCell = row.cells[3]; // Status column is 4th column (index 3)
                 
                 if (statusCell) {
                     const statusBadge = statusCell.querySelector('.badge');
@@ -801,30 +1267,48 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Show all reports if no filter selected
                     if (filterValue === '') {
                         row.style.display = '';
+                        visibleCount++;
                         continue;
                     }
                     
-                    // Map filter values to status text
+                    // Match filter value to status text
                     let shouldShow = false;
                     
-                    switch(filterValue) {
-                        case 'new':
-                            // Show rows with "Pending" status (assuming "new" maps to "Pending")
-                            shouldShow = statusText === 'pending';
-                            break;
-                        case 'in-review':
-                            // Show rows with status that's not "Pending" or "Resolved"
-                            shouldShow = statusText == 'pending';
-                            break;
-                        case 'resolved':
-                            shouldShow = statusText === 'resolved';
-                            break;
+                    if (filterValue === statusText) {
+                        shouldShow = true;
                     }
                     
                     row.style.display = shouldShow ? '' : 'none';
+                    if (shouldShow) visibleCount++;
                 }
             }
+
+            // Show "no results" message if no rows are visible
+            showNoResultsMessage(visibleCount, reportsTable);
         });
+    }
+
+    function showNoResultsMessage(visibleCount, tableBody) {
+        let noResultsRow = document.getElementById('no-results-row');
+        
+        if (visibleCount === 0) {
+            if (!noResultsRow) {
+                noResultsRow = document.createElement('tr');
+                noResultsRow.id = 'no-results-row';
+                noResultsRow.innerHTML = `
+                    <td colspan="5" class="text-center text-muted py-4">
+                        <i class="bi bi-search fs-3 d-block mb-2"></i>
+                        No reports found for this status
+                    </td>
+                `;
+                tableBody.appendChild(noResultsRow);
+            }
+            noResultsRow.style.display = '';
+        } else {
+            if (noResultsRow) {
+                noResultsRow.style.display = 'none';
+            }
+        }
     }
 });
 
@@ -949,20 +1433,54 @@ document.addEventListener('DOMContentLoaded', function() {
     modal.addEventListener('show.bs.modal', loadIssues);
 });
 
-    document.getElementById('downloadReports').addEventListener('click', function() {
-    // Trigger PDF download
-    const pdfLink = document.createElement('a');
-    pdfLink.href = "{{ route('reports.generate.pdf') }}";
-    pdfLink.download = '';
-    pdfLink.click();
-
-    // Slight delay to ensure second download triggers
-    setTimeout(() => {
-        const excelLink = document.createElement('a');
-        excelLink.href = "{{ route('reports.generate.excel') }}";
-        excelLink.download = '';
-        excelLink.click();
-    }, 500);
+    document.addEventListener('DOMContentLoaded', function() {
+    const downloadBtn = document.getElementById('downloadReports');
+    
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', function() {
+            console.log('Download button clicked');
+            
+            // Create hidden iframe for PDF download
+            const pdfIframe = document.createElement('iframe');
+            pdfIframe.style.display = 'none';
+            pdfIframe.src = "{{ route('reports.generate.pdf') }}";
+            pdfIframe.onload = function() {
+                console.log('PDF iframe loaded');
+            };
+            pdfIframe.onerror = function() {
+                console.error('PDF iframe error');
+            };
+            document.body.appendChild(pdfIframe);
+            
+            // Create hidden iframe for Excel download after delay
+            setTimeout(() => {
+                console.log('Starting Excel download');
+                const excelIframe = document.createElement('iframe');
+                excelIframe.style.display = 'none';
+                excelIframe.src = "{{ route('reports.generate.excel') }}";
+                excelIframe.onload = function() {
+                    console.log('Excel iframe loaded');
+                };
+                excelIframe.onerror = function() {
+                    console.error('Excel iframe error');
+                };
+                document.body.appendChild(excelIframe);
+                
+                // Clean up iframes after downloads complete
+                setTimeout(() => {
+                    if (document.body.contains(pdfIframe)) {
+                        document.body.removeChild(pdfIframe);
+                    }
+                    if (document.body.contains(excelIframe)) {
+                        document.body.removeChild(excelIframe);
+                    }
+                    console.log('Cleanup complete');
+                }, 5000);
+            }, 1000);
+        });
+    } else {
+        console.error('Download button not found!');
+    }
 });
 // Daily Waste Chart
 const dailyCtx = document.getElementById('dailyWasteChart').getContext('2d');

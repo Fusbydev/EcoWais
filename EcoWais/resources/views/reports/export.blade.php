@@ -185,7 +185,6 @@
             <th>Other Issue</th>
             <th>Location</th>
             <th>Incident Date</th>
-            <th>Priority</th>
             <th>Description</th>
             <th>Photo</th>
         </tr>
@@ -195,7 +194,6 @@
             <td>{{ $r->other_issue }}</td>
             <td>{{ $r->location }}</td>
             <td>{{ $r->incident_datetime }}</td>
-            <td>{{ ucfirst($r->priority) }}</td>
             <td>{{ $r->description }}</td>
             <td>
                 @if($r->photo_path)

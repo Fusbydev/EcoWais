@@ -24,12 +24,89 @@ const TILE_LAYERS = {
 };
 
 // ✅ Initialize map when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     if (document.getElementById('tracking-map')) {
         initializeTrackingMap();
+        await populateTruckDropdown();
         loadAllTruckMarkersAndRoutes();
     }
+
+    // Truck ID filter - works independently
+    const truckIdFilter = document.getElementById('truck-id-filter');
+    if (truckIdFilter) {
+        truckIdFilter.addEventListener('change', () => {
+            const dateEl = document.getElementById('filter-date');
+            const selectedDate = dateEl ? (dateEl.value || null) : null;
+            const selectedTruckId = truckIdFilter.value;
+            
+            console.log('🚛 Truck ID Filter Changed:', selectedTruckId);
+            console.log('📅 Current Date:', selectedDate);
+            
+            // Always pass 'all' for status since we don't have status filter
+            loadAllTruckMarkersAndRoutes(selectedDate, selectedTruckId, 'all');
+        });
+    }
+
+    // Date filter - works independently
+    const dateFilter = document.getElementById('filter-date');
+    if (dateFilter) {
+        dateFilter.addEventListener('change', () => {
+            const selectedDate = dateFilter.value || null;
+            const truckIdEl = document.getElementById('truck-id-filter');
+            const selectedTruckId = truckIdEl ? truckIdEl.value : 'all';
+            
+            console.log('📅 Date Filter Changed:', selectedDate);
+            console.log('🚛 Current Truck ID:', selectedTruckId);
+            
+            // Always pass 'all' for status since we don't have status filter
+            loadAllTruckMarkersAndRoutes(selectedDate, selectedTruckId, 'all');
+        });
+    }
 });
+
+// Populate truck dropdown
+async function populateTruckDropdown() {
+    try {
+        const truckFilter = document.getElementById('truck-id-filter');
+        
+        if (!truckFilter) {
+            console.error('❌ Truck ID filter dropdown not found');
+            return;
+        }
+
+        console.log('🔄 Fetching trucks from /truck-pickups...');
+        const response = await fetch('/truck-pickups');
+        
+        if (!response.ok) {
+            console.error('❌ Response not OK:', response.status);
+            return;
+        }
+        
+        const trucksData = await response.json();
+        
+        console.log('📦 Trucks Data:', trucksData);
+        
+        // Get unique trucks
+        const uniqueTrucks = [...new Set(trucksData.map(t => t.truck_id))].filter(Boolean).sort();
+        
+        console.log('🚛 Unique Trucks:', uniqueTrucks);
+        
+        // Clear and populate dropdown
+        truckFilter.innerHTML = '<option value="all">All Trucks</option>';
+        
+        uniqueTrucks.forEach(truckId => {
+            const option = document.createElement('option');
+            option.value = truckId;
+            option.textContent = `Truck ${truckId}`;
+            truckFilter.appendChild(option);
+        });
+        
+        console.log('✅ Truck dropdown populated with', uniqueTrucks.length, 'trucks');
+        
+    } catch (error) {
+        console.error('❌ Error populating truck dropdown:', error);
+    }
+}
 // Map Auto-Refresh Implementation - Simplified Version
 let refreshInterval;
 
@@ -145,10 +222,21 @@ function initializeTrackingMap() {
 
     console.log('✅ Markers cleared and ready for new data.');
 }
-async function loadAllTruckMarkersAndRoutes(filterDate = null) {
+
+
+async function loadAllTruckMarkersAndRoutes(filterDate = null, truckIdFilter = 'all', statusFilter = 'all') {
     try {
+        // ---- CLEAR EXISTING MARKERS FIRST ----
+        markerClusterGroup.clearLayers();
+        
+        // Also clear any existing route polylines
+        map.eachLayer(layer => {
+            if (layer instanceof L.Polyline && !(layer instanceof L.Marker)) {
+                map.removeLayer(layer);
+            }
+        });
+
         // ---- DATE SETUP ----
-        // Use provided filterDate or default to today
         const targetDate = filterDate || (() => {
             const today = new Date();
             const yyyy = today.getFullYear();
@@ -158,6 +246,8 @@ async function loadAllTruckMarkersAndRoutes(filterDate = null) {
         })();
 
         console.log('🗓️ Target Date:', targetDate);
+        console.log('🚛 Truck ID Filter:', truckIdFilter);
+        console.log('📊 Status Filter:', statusFilter);
 
         // ---- FETCH DATA ----
         const [trucksResponse, pickupsResponse] = await Promise.all([
@@ -175,9 +265,23 @@ async function loadAllTruckMarkersAndRoutes(filterDate = null) {
         trucksData = trucksData.filter(truck => truck.pickup_date === targetDate);
         
         // Get current truck locations from pickup-locations (for plotting truck icons)
-        const currentTruckLocations = pickupsData.filter(p => p.pickup_date === targetDate);
+        let currentTruckLocations = pickupsData.filter(p => p.pickup_date === targetDate);
 
-        console.log('✅ Filtered Trucks (date match):', trucksData);
+        // ---- FILTER BY SPECIFIC TRUCK ID ----
+        if (truckIdFilter !== 'all') {
+            console.log('🔍 Filtering by Truck ID:', truckIdFilter);
+            currentTruckLocations = currentTruckLocations.filter(p => p.truck_id === truckIdFilter);
+            trucksData = trucksData.filter(truck => truck.truck_id === truckIdFilter);
+        }
+
+        // ---- FILTER BY STATUS ----
+        if (statusFilter !== 'all') {
+            console.log('🔍 Filtering by Status:', statusFilter);
+            currentTruckLocations = currentTruckLocations.filter(p => p.status === statusFilter);
+            trucksData = trucksData.filter(truck => truck.status === statusFilter);
+        }
+
+        console.log('✅ Filtered Trucks (date + truck + status):', trucksData);
         console.log('✅ Current Truck Locations:', currentTruckLocations);
 
         // ---- PROCESS TRUCKS ----
@@ -187,19 +291,27 @@ async function loadAllTruckMarkersAndRoutes(filterDate = null) {
         currentTruckLocations.forEach(location => {
             const truck = trucksData.find(t => t.truck_id === location.truck_id);
             
-            if (!truck) return; // Skip if truck data not found
+            if (!truck) return;
 
             if (!truckGroups[location.truck_id]) {
                 truckGroups[location.truck_id] = [];
             }
 
             // Determine icon based on status
-            let truckIcon = '🚛'; // Default for active
-            if (location.status === 'idle') {
-                truckIcon = '🟡';
-            } else if (location.status === 'maintenance') {
-                truckIcon = '🔧';
-            }
+            let truckIconHtml = `
+                    <i class="fa-solid fa-truck text-success fs-4"></i>
+                `;
+
+                if (location.status === 'idle') {
+                    truckIconHtml = `
+                        <i class="fa-solid fa-truck text-warning fs-4"></i>
+                    `;
+                } else if (location.status === 'maintenance') {
+                    truckIconHtml = `
+                        <i class="fa-solid fa-screwdriver-wrench text-danger fs-4"></i>
+                    `;
+                }
+
 
             // Add truck's current location
             truckGroups[location.truck_id].push({
@@ -209,7 +321,7 @@ async function loadAllTruckMarkersAndRoutes(filterDate = null) {
                 pickup_date: location.pickup_date,
                 pickup_time: location.pickup_time,
                 driver_name: location.driver_name,
-                icon: truckIcon,
+                icon: truckIconHtml,
                 isTruckLocation: true,
                 status: location.status
             });
@@ -217,7 +329,7 @@ async function loadAllTruckMarkersAndRoutes(filterDate = null) {
 
         // Now add pickup routes for ACTIVE trucks only
         trucksData.forEach(truck => {
-            if (truck.status !== 'active') return; // Skip non-active trucks
+            if (truck.status !== 'active') return;
             
             if (!truckGroups[truck.truck_id]) {
                 truckGroups[truck.truck_id] = [];
@@ -286,6 +398,9 @@ async function loadAllTruckMarkersAndRoutes(filterDate = null) {
                     }
                 });
 
+                // Check if this truck has any pickup points
+                const hasPickups = points.some(point => point.isPickupPoint);
+
                 // Render all markers
                 points.forEach(p => {
                     let iconHtml;
@@ -317,6 +432,7 @@ async function loadAllTruckMarkersAndRoutes(filterDate = null) {
                         ${p.timeWindow ? `⏰ ${p.timeWindow}<br>` : ''}
                         ${p.pickup_time ? `⏰ ${p.pickup_time}<br>` : ''}
                         📅 ${targetDate}
+                        ${p.isTruckLocation && !hasPickups ? '<br><strong style="color: orange;">⚠️ No Pickup</strong>' : ''}
                     `);
 
                     markerClusterGroup.addLayer(marker);
@@ -331,8 +447,11 @@ async function loadAllTruckMarkersAndRoutes(filterDate = null) {
             } else {
                 // IDLE/MAINTENANCE TRUCK: Show only status icon, no route
                 
+                // Check if this truck has any pickup points
+                const hasPickups = points.some(point => point.isPickupPoint);
+                
                 points.forEach(p => {
-                    if (!p.isTruckLocation) return; // Only show truck location
+                    if (!p.isTruckLocation) return;
                     
                     const marker = L.marker(
                         [p.latitude, p.longitude],
@@ -350,7 +469,8 @@ async function loadAllTruckMarkersAndRoutes(filterDate = null) {
                         👨‍✈️ ${p.driver_name}<br>
                         📅 ${p.pickup_date}<br>
                         ⏰ ${p.pickup_time}<br>
-                        <em>Status: ${p.icon === '🟡' ? 'Idle' : 'Maintenance'}</em>
+                        <em>Status: ${p.icon === '🟡' ? 'Idle' : 'Maintenance'}</em><br>
+                        ${!hasPickups ? '<strong style="color: orange;">⚠️ No Pickup</strong>' : ''}
                     `);
 
                     markerClusterGroup.addLayer(marker);
@@ -358,12 +478,150 @@ async function loadAllTruckMarkersAndRoutes(filterDate = null) {
             }
         }
 
-        // Fit map bounds
+        // ---- FIT MAP BOUNDS DYNAMICALLY ----
         if (markerClusterGroup.getLayers().length > 0) {
-            map.fitBounds(markerClusterGroup.getBounds());
+            const bounds = markerClusterGroup.getBounds();
+            
+            map.fitBounds(bounds, {
+                padding: [50, 50],
+                maxZoom: 16,
+                animate: true,
+                duration: 0.5
+            });
+            
+            map.setView(bounds.getCenter());
         } else {
-            console.log('ℹ️ No markers to display for date:', targetDate);
+    console.log('ℹ️ No markers to display for date:', targetDate, 'truck:', truckIdFilter, 'status:', statusFilter);
+    
+    // Don't reset map view - keep current position
+    // map.setView([14.5995, 120.9842], 11); // REMOVED
+    
+    // ---- SHOW FADED OVERLAY MESSAGE ----
+    const existingMsg = document.getElementById('no-trucks-overlay');
+    if (existingMsg) existingMsg.remove();
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'no-trucks-overlay';
+    overlay.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease-in;
+    `;
+    
+    const messageBox = document.createElement('div');
+    messageBox.style.cssText = `
+        background: white;
+        padding: 40px 50px;
+        border-radius: 15px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+        text-align: center;
+        position: relative;
+        max-width: 400px;
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 15px;
+        background: none;
+        border: none;
+        font-size: 30px;
+        color: #999;
+        cursor: pointer;
+        transition: color 0.2s;
+    `;
+    closeBtn.onmouseover = () => closeBtn.style.color = '#333';
+    closeBtn.onmouseout = () => closeBtn.style.color = '#999';
+    
+    messageBox.innerHTML = `
+        <div style="font-size: 60px; margin-bottom: 15px;">🚛</div>
+        <div style="font-size: 22px; font-weight: bold; color: #333; margin-bottom: 15px;">
+            No Trucks Found
+        </div>
+        <div style="font-size: 15px; color: #666; line-height: 1.6;">
+            ${truckIdFilter !== 'all' 
+                ? `Truck <strong>${truckIdFilter}</strong> has no pickup for <strong>${targetDate}</strong>` 
+                : `No trucks available for <strong>${targetDate}</strong>`}
+        </div>
+        <div style="font-size: 12px; color: #999; margin-top: 15px;">
+            Closing in <span id="countdown">3</span> seconds...
+        </div>
+    `;
+    
+    messageBox.appendChild(closeBtn);
+    overlay.appendChild(messageBox);
+    
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Function to close overlay
+    const closeOverlay = () => {
+        overlay.style.animation = 'fadeOut 0.3s ease-out';
+        setTimeout(() => {
+            if (overlay.parentNode) {
+                overlay.remove();
+            }
+        }, 300);
+    };
+    
+    // Close on button click
+    closeBtn.onclick = closeOverlay;
+    
+    // Close on overlay click (outside message box)
+    overlay.onclick = (e) => {
+        if (e.target === overlay) {
+            closeOverlay();
+        }
+    };
+    
+    // Auto-close after 3 seconds with countdown
+    let countdown = 3;
+    const countdownEl = messageBox.querySelector('#countdown');
+    const countdownInterval = setInterval(() => {
+        countdown--;
+        if (countdownEl) {
+            countdownEl.textContent = countdown;
+        }
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            closeOverlay();
+        }
+    }, 1000);
+    
+    // Add to map container
+    const mapContainer = document.getElementById('tracking-map');
+    if (mapContainer) {
+        mapContainer.style.position = 'relative'; // Ensure container is positioned
+        mapContainer.appendChild(overlay);
+    }
+}
 
     } catch (error) {
         console.error('❌ Error loading map:', error);

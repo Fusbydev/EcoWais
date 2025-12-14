@@ -402,7 +402,39 @@ $drivers = $truckData->map(function($d) {
 @endphp
 
 <script>
+
+    function filterReports() {
+    const filterValue = document.getElementById('report-status-filter').value;
+    const rows = document.querySelectorAll('#reports-history tr');
+    
+    rows.forEach(row => {
+        if (filterValue === 'all') {
+            row.style.display = '';
+        } else {
+            const statusBadge = row.querySelector('.badge');
+            
+            if (statusBadge) {
+                const statusText = statusBadge.textContent.trim().toLowerCase();
+                
+                // Map filter values to badge text
+                const statusMap = {
+                    'pending': 'pending',
+                    'in-review': 'in review',
+                    'resolved': 'resolved'
+                };
+                
+                if (statusText === statusMap[filterValue]) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        }
+    });
+}
 document.addEventListener("DOMContentLoaded", function() {
+
+    
     const select = document.getElementById('issue-type');
 
     fetch('{{ route("issues.get") }}')

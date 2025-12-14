@@ -211,7 +211,7 @@
                                 <tbody id="trucks-tbody">
                                     @forelse($truckData as $truck)
                                         @php
-                                            $hasTodayPickup = ($truck['pickup_date'] <= $today);
+                                            $hasTodayPickup = ($truck['pickup_date'] == $today);
                                         @endphp
 
                                         @if($hasTodayPickup)
