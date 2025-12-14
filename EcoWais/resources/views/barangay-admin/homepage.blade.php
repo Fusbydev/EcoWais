@@ -355,7 +355,7 @@
                                         <tr>
                                             <th class="fw-semibold py-3 px-4" style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Driver Name</th>
                                             <th class="fw-semibold py-3 px-4" style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Pickup Schedule</th>
-                                            <th class="fw-semibold py-3 px-4" style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Pickup</th>
+                                            <th class="fw-semibold py-3 px-4" style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Routes</th>
                                             <th class="fw-semibold py-3 px-4" style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
                                         </tr>
                                     </thead>
